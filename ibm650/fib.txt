@@ -1,0 +1,62 @@
++0000000000 (0)  Constant 0
++0000000000 (1)  a
++0000000001 (2)  b
++0000000000 (3)  temp
++0000000000 (4)  max loops
++0000000000 (5)  count - starts at 1 because we always show the first '1'
++0000000000 (6)  display - 0 for low display mode, anything else for a more debuggy output
++0000000000 (7)  sum - total of all fib numbers found
++0000000000 (8)  sum change amount - what number we should sub/multiply/divide the sum by
++0000000000 (9)  changed sum - temp holder for changed sum
++0000000025 (10) max storage for array, not allowed to do more loops than this
++0000000000 (11) fib array
++9999999999 ############### END DATA #################
++8000000004 (0)  read in the max number of loops
++5010004003 (1)  --- if max storage for array is less than loops requested do next line
++0010000004 (2)  set max loops to be the maximum allowed
++8000000006 (3)  read in the display setting
++0001000003 (4)  { move a to temp
++0002000001 (5)    move b to a
++1003001002 (6)    a + temp -> b
++4000006009 (7)    skip displaying number if in low display mode
+-8001000000 (8)    print a (helps catch the first number of the sequence)
++1001007007 (9)    keep running total of fib numbers found
+-6001011005 (10)   save fib num to array
++7005004004 (11) --- } loop back until we reach the max number of loops
+-4000006014 (12) --- if in low display mode only show the final number of sequence
+-8001000000 (13) print final number
+-8007000000 (14) print sum of fibs found
++8000000008 (15) read in how much we should change sum by
++2007008009 (16) sum * change amount -> changed sum
++4000006019 (17) --- do not do next line (print) if display mode is low
+-8009000000 (18) display current changed sum
+-1009008009 (19) changed sum - change amount -> changed sum
++4000006022 (20) --- do not do next line (print) if display mode is low
+-8009000000 (21) display current changed sum
++1009008009 (22) changed sum + change amount -> changed sum
++4000006025 (23) --- do not do next line (print) if display mode is low
+-8009000000 (24) display current changed sum
+-2009008009 (25) changed sum / sum change amount -> changed sum
+-4000006028 (26) --- always display final changed sum if we are in high display
++4007009029 (27) --- if the sum is the same as the changed sum, everything worked, no need to display
+-8009000000 (28) print changed sum
++3007000009 (29) square sum -> changed sum (note we started using sum fresh again. Makes it easier to find where problems lie)
+-3009000009 (30) square root changed sum -> changed sum
++4007009033 (31) --- if the sum is the same as the changed sum, everything worked, no need to display
+-8009000000 (32) print changed sum
+-0007000009 (33) negate sum -> changed sum
+-5009007036 (34) --- changed sum should be less than sum (it's the negative version of it). Display if it's not
+-8009000000 (35) print changed sum
++5007007038 (36) --- sum should be >= itself. Display if it isn't
+-8007000000 (37) print sum
+-5007007040 (38) --- sum should _not_ be less than itself. Display if it is
++4000000041 (39) --- should go to place after print
+-8009000000 (40) print sum
+-2004008003 (41) max loops / sum change amount -> temp
++6011003003 (42) get the element from the array -> temp
+-8003000000 (43) print element
++9000000000 (44) end program
++9999999999 ############## END PROGRAM ###############
++0000000100      how far to go in the series (if too high, program will change to be the max it allows)
++0000000001      high display mode?
++0000000002      what number we should manipulate the sum with

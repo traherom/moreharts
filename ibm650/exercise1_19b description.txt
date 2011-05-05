@@ -1,0 +1,18 @@
+       Program:                          Data:
+000: > read num of elements              +0000000000
+
+001:   read el into temp                 index
+002:   000 >= 000, goto 004     ???      sum
+003:   000 - temp -> temp                avg
+004:   temp -> array(index)              num of elements
+005:   ++index<num of ele, goto 001      temp
+
+006:   zero index                        array |
+                                               |
+007:   array(index)->num of elements           V
+008:   temp + sum -> sum
+009:   ++index<num of ele, goto 007
+
+010:   sum / num of ele -> avg
+011:   print avg
+012:   end
