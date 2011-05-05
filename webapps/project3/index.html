@@ -1,0 +1,98 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+   <head>
+      <link rel="icon" href="image/favicon.ico" />
+      <link rel="shortcut icon" href="image/favicon.ico" />
+      <link rel="stylesheet" type="text/css" href="style/project3.css" />
+      
+      <script type="text/javascript" src="script/connectivity.js"></script>
+      <script type="text/javascript" src="script/external.js"></script>
+      <script type="text/javascript" src="http://ajax.googleapis.com/ajax/libs/jquery/1.4.2/jquery.min.js"></script>
+      <script type="text/javascript">
+			// check immedietly if the user may be logged in already
+			$.getJSON("http://judah.cedarville.edu/rmoreha/IsLoggedIn?callback=?", function(data)
+ 		   {
+				if(data.userID != null)
+				{
+					window.location = "loggedin.html";
+				}
+ 		   });
+		
+			/*
+			 * When the page has loaded, fill in the usernames list with all user's names and fill the table
+			 * with user and project information.
+			 */
+			function fillComponents()
+			{
+				// populate the usernames list from the database (also fill in the usernames in the table)
+				$.getJSON("http://judah.cedarville.edu/rmoreha/GetUserList?callback=?", function(data)
+				{
+					for(var i = 0; i < data.users.length; ++i)
+					{
+						var option = "<option id=\"username" + i + "\" value=" + data.users[i].userID + ">" + data.users[i].name + "</option>";
+						$("#usernames").append(option);
+						users.push(new Array(data.users[i].name, data.users[i].userName, data.users[i].userID, data.users[i].isAdmin));
+					}
+				});
+			
+				fillProjects();
+			}
+		</script>
+      <title>Alex Laird | Web Applications (CS 4220) | Project 3 | Login</title>
+	</head>
+   
+   <body id="project3LoggedIn" onload="externals(); fillComponents();">
+   	<div id="content">
+         <div id="header">
+            <h1><span>Welcome to the People's Choice Awards</span></h1>
+         </div><span><span>
+         
+         <div id="leftColumn">
+         	<h1><span>&nbsp;</span></h1>
+            <div id ="innerLeftSummary" align="center">
+            	<h2><span>Results for</span></h2>
+               <table id="projectsTable">
+               </table>
+            </div>
+            <h3><span>&nbsp;</span></h3>
+         </div>
+         
+         <div id="rightColumn">
+            <h2><span>&nbsp;</span></h2>
+               <div align="center"><h3><span>Sign in to your account</span></h3></div>
+
+               <form id="loginForm" name="loginForm" method="post" onsubmit="login(); return false;">
+                  <table>
+                     <tr>
+                        <td><div align="right">Username:</div></td>
+                        <td><select name="usernames" id="usernames"><option value="">Select User:</option></select></td>
+                     </tr>
+                     
+                     <tr>
+                        <td><div align="right">Password:</div></td>
+
+                        <td><input name="passwordField" id="passwordField" type="password" /></td>
+                     </tr>
+                     
+                     <tr>
+                        <td></td>
+                        <td id="login_info">&nbsp;</td>
+                     </tr>
+                     <tr>
+                        <td></td>
+                        <td><input type="submit" name="loginButton" value="Sign in" /></td>
+                     </tr>
+                  </table>
+               </form>
+            <h4><span>&nbsp;</span></h4>
+         </div>
+         
+         <div id="footer">
+            <p class="p1"><span>Go <a id="back" href="../cs4220.html" title="Back to my project's main page!">back</a> to my project's main menu.</span></p>
+            <p class="p2">Created in 2010 by <a href="http://www.alexlaird.net/" title="This is my real website, which you should check out" rel="external">Alex Laird</a> and <a href="http://traherom.com" rel="external">Ryan Morehart</a>. If you feel you have reached this page in error, panic is an appropriate reaction.</p>
+         </div>
+      </span></span></div>
+   </body>
+</html>

@@ -1,0 +1,247 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+   <head>
+      <link rel="icon" href="image/favicon.ico" />
+      <link rel="shortcut icon" href="image/favicon.ico" />
+      <link rel="stylesheet" type="text/css" href="style/project3.css" />
+      
+      <script type="text/javascript" src="script/arguments.js"></script>
+      <script type="text/javascript" src="script/connectivity.js"></script>
+      <script type="text/javascript" src="script/external.js"></script>
+      <script type="text/javascript" src="http://ajax.googleapis.com/ajax/libs/jquery/1.4.2/jquery.min.js"></script>
+      <script type="text/javascript">
+			var projectID = getArgument("project");
+			if(projectID == null)
+			{
+				window.location = "loggedin.html";
+			}
+			
+			// check immedietly that the user is actually logged in
+			$.getJSON("http://judah.cedarville.edu/rmoreha/IsLoggedIn?callback=?", function(data)
+ 		   {
+				if(!data.isLoggedIn)
+					window.location = "index.html";
+
+				if(data.isAdmin)
+				{
+					$(".nonAdminOnly").hide();
+					$(".adminOnly").show();
+				}
+				else
+				{
+					$(".nonAdminOnly").show();
+					$(".adminOnly").hide();
+				}
+ 		   });
+			
+			/*
+			 * When the page has loaded, fill in the usernames list with all user's names and fill the table
+			 * with user and project information.
+			 */
+			function fillComponents()
+			{
+				// put the users name in the welcome
+				$.getJSON("http://judah.cedarville.edu/rmoreha/IsLoggedIn?callback=?", function(data)
+				{
+					var myUserID = data.userID;
+					
+					$.getJSON("http://judah.cedarville.edu/rmoreha/GetProject?callback=?", {"projectID": projectID}, function(data)
+					{
+						// fill the project number
+						document.getElementById("projectInfo").firstChild.nodeValue = data.description;
+					});
+					
+					// populate the usernames list from the database (also fill in the usernames in the table)
+					$.getJSON("http://judah.cedarville.edu/rmoreha/GetUserList?callback=?", function(data)
+					{
+						for(var i = 0; i < data.users.length; ++i)
+						{
+							users.push(new Array(data.users[i].name, data.users[i].userName, data.users[i].userID, data.users[i].isAdmin));
+							
+							if(myUserID != data.users[i].userID && !data.users[i].isAdmin)
+							{
+								if(!data.users[i].hasPartner || data.users[i].firstPartner == myUserID || data.users[i].secondPartner == myUserID)
+								{
+									var partnerOption = "<option id=\"partner" + i + "\" value=" + data.users[i].userID + ">" + data.users[i].	name + "</option>";
+									$("#firstPartnerSelect").append(partnerOption);
+									$("#secondPartnerSelect").append(partnerOption);
+								}
+							}
+						}
+					});
+					
+					// populate the projects table and fill from the database
+					$.getJSON("http://judah.cedarville.edu/rmoreha/GetProjectList?callback=?", function(data)
+					{
+						// write the column headers row
+						var headerRow = "<tr><td></td>";
+						for(var i = 0; i < data.projects.length; ++i)
+						{
+							headerRow += "<td>" + data.projects[i].description + "</td>";
+						}
+						headerRow += "</tr>";
+						$("#projectsTable").append(headerRow);
+						
+						// write a row for each user
+						for(var i = 0; i < users.length; ++i)
+						{
+							var row = "<tr><td>" + users[i] + "</td>";
+							
+							for(var j = 0; j < data.projects.length; ++j)
+							{
+								row += "<td id=\"" + users[i] + data.projects[j].projectID + "\"></td>";
+							}
+							row += "</tr>";
+							$("#projectsTable").append(row);
+						}
+					
+						// fill the projects voting list (if that project is open for voting) and the
+						// projects view list (if that project has been voted on) 
+						// fileProjectSelect() does this exact same thing, but it would make another json call
+						for(var i = 0; i < data.projects.length; ++i)
+						{
+							var option = "<option value=\"" + data.projects[i].projectID + "\">" + data.projects[i].description + "</option>";
+							if(data.projects[i].first.length > 0)
+								$("#viewSelect").append(option);
+
+							$.getJSON("http://judah.cedarville.edu/rmoreha/HasVoted?callback=?",
+								{"userID": myUserID, "projectID": data.projects[i].projectID},
+								function(data)
+								{
+									var option2 = "<option value=\"" + data.projectID + "\">" + data.description + "</option>";
+									if(data.isOpen && !data.hasVoted)
+										$("#voteSelect").append(option2);
+								});
+						}
+					});
+				});
+					
+				fillView();
+			}
+		</script>
+      <title>Alex Laird | Web Applications (CS 4220) | Project 3 | View</title>
+	</head>
+   
+   <body id="project3LoggedIn" onload="externals(); fillComponents();">
+   	<div id="content">
+         <div id="header">
+            <h1><span>Welcome to the People's Choice Awards</span></h1>
+         </div><span><span>
+         
+         <div id="leftColumn">
+         	<h1><span>&nbsp;</span></h1>
+            <div align="center">
+            	<h2><span>Results for</span></h2><h4><span id="projectInfo">&nbsp;</span></h4>
+            	<table id="viewTable">
+               </table><br />
+               <table id="writeInsTable">
+               </table>
+            </div>
+            <h3><span>&nbsp;</span></h3>
+         </div>
+         
+         <div id="rightColumn">
+         	<div id="standard">
+               <h2><span>&nbsp;</span></h2>
+                  <div align="center">
+                     <h5><span>Account</span></h5>
+                     <p class="p1"><a href="loggedin.html">Back</a> to the People's Choice main.</p>
+                     <button id="logout" onclick="logout();">Logout</button><br />
+                     <button id="changePassword" onclick="editProfile();">Edit Profile</button><br />
+                     <div id="adminButtonDiv">
+					 	<input type="button" onclick="window.location='admin.html'" name="adminButton" value="Admin" class="adminOnly" />
+						<br class="nonAdminOnly" />
+					 </div>
+                     <div id="profile_info">&nbsp;</div>
+                     <table id="accountTable">                     
+                        <tr class="nonAdminOnly">
+                           <td><div align="right">Vote on</div></td>
+                           <td><select id="voteSelect"></select></td>
+                           <td><button id="vote" onclick="voteProject();">Vote!</button></td>
+                        </tr>
+                        <tr>
+                           <td><div align="right">View Results for</div></td>
+                           <td><select id="viewSelect"></select></td>
+                           <td><button id="view" onclick="viewProject();">View!</button></td>
+                        </tr>
+                     </table>
+                  </div>
+               <h4><span>&nbsp;</span></h4>
+            </div>
+           	<div id="editProfileDiv">
+               <h2><span>&nbsp;</span></h2>
+               <div align="center">
+	               <h5><span>Account</span></h5><br />
+                  <form id="editProfileForm" onsubmit="verifyProfile(); return false;">
+                     <table id="editProfile">
+                     	<tr>
+                        	<td colspan="2"><b>Change Display Name:</b></td>
+                        </tr>
+                        <tr>
+                        	<td>Display Name:</td>
+                           <td><input type="text" id="displayNameTextField" name="displayNameTextField" /></td>
+                        </tr>
+                        
+                        <tr><td>&nbsp;</td><td></td></tr>
+                        
+                        <tr>
+                        	<td colspan="2"><b>Change Email:</b></td>
+                        </tr>
+                        <tr>
+                        	<td>Email:</td>
+                           <td><input type="text" id="emailTextField" name="emailTextField" /></td>
+                        </tr>
+                        
+                        <tr><td>&nbsp;</td><td></td></tr>
+                        
+                        <tr>
+                        	<td><b>Partners:</b></td>
+                           <td><select id="firstPartnerSelect"><option value="">None</option></select></td>
+                        </tr>
+                        
+                        <tr>
+                        	<td></td>
+                           <td><select id="secondPartnerSelect"><option value="">None</option></select></td>
+                        </tr>
+                        
+                        <tr><td>&nbsp;</td><td></td></tr>
+                        
+                     	<tr>
+                        	<td colspan="2"><b>Change Password:</b></td>
+                        </tr>
+                        <tr>
+                           <td><div align="right">Current password:</div></td>
+                           <td><input type="password" id="oldPass" name="oldPass" /></td>
+                        </tr>
+                        <tr>
+                           <td><div align="right">New password:</div></td>
+                           <td><input type="password" id="newPass" name="newPass" /></td>
+                        </tr>
+                        <tr>
+                           <td><div align="right">Confirm new password:</div></td>
+                           <td><input type="password" id="retypeNewPass" name="retypeNewPass" /></td>
+                        </tr>
+                        <tr>
+                        	<td></td>
+                           <td id="change_info">&nbsp;</td>
+                        </tr>
+                        <tr>
+                           <td><div align="right"><input type="reset" name="resetButton" value="Cancel" onclick="uneditProfile()"; /></div></td>
+                           <td><div align="center"><input type="submit" name="changePasswordButton" value="Confirm Changes" /></div></td>
+                        </tr>
+                     </table>
+                  </form>
+               </div>
+               <h4><span>&nbsp;</span></h4>
+            </div>
+         </div>
+         
+         <div id="footer">
+            <p class="p1"><span>Go <a id="back" href="../cs4220.html" title="Back to my project's main page!">back</a> to my project's main menu.</span></p>
+            <p class="p2">Created in 2010 by <a href="http://www.alexlaird.net/" title="This is my real website, which you should check out" rel="external">Alex Laird</a> and <a href="http://traherom.com" rel="external">Ryan Morehart</a>. If you feel you have reached this page in error, panic is an appropriate reaction.</p>
+         </div>
+      </span></span></div>
+   </body>
+</html>
