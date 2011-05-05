@@ -1,0 +1,62 @@
+/*****************************************************************************
+ * Author: Alex Laird
+ * Date: January 20th, 2010
+ *
+ * This CSS document contains definitions of attributes that pertain directly
+ * to the project page it is attached to.
+ ****************************************************************************/
+
+/*****************************************************************************
+ * The following definitions pertain to global page design and behavior.
+ ****************************************************************************/
+
+html
+{
+   background: url(image/background.png);
+   margin: 0;
+   padding: 0;
+}
+
+body
+{
+   margin: 0;
+   padding: 0;
+}
+
+p
+{
+   font-family: Verdana, Arial, Helvetica, sans-serif;
+   font-size: 11px;
+   color: #666;
+   margin: 10px 15px 20px 10px;
+   line-height: 16px;
+}
+
+a:link
+{
+   text-decoration: underline;
+   color: #990000;
+}
+
+a:hover, a:active
+{
+   text-decoration: none;
+   color: #003366;
+}
+
+a:visited
+{
+   color: #590000;
+}
+
+/*****************************************************************************
+ * The following definitions pertain to specific divs used in the page markup.
+ ****************************************************************************/
+
+#footer .p2
+{
+	border-top: 1px solid #666;
+   width: 525px;
+   font-size: 10px;
+   text-align: justify;
+}

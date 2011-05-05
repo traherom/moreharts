@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.1//EN" "http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" >
+<head>
+	<title>Forms</title>
+	
+	<link rel="stylesheet" type="text/css" href="proj.css" />
+</head>
+<body>
+<form action="http://judah.cedarville.edu:8080/servlet/RequestInfoExample" method="post">
+<table>
+	<tr>
+		<td>Name</td>
+		<td><input type="text" name="name" /></td>
+	</tr>
+	<tr>
+		<td>Desired grade in Dr. G class</td>
+		<td>
+			<select name="actual_grade">
+				<option value="B-">A</option>
+				<option value="D">B</option>
+				<option value="F">C</option>
+				<option value="F">D</option>
+				<option value="I">F</option>
+			</select>
+		</td>
+	</tr>
+	<tr>
+		<td>Get help?</td>
+		<td>
+			<input type="checkbox" name="has_help" />
+			I wil be getting help for this class.
+		</td>
+	</tr>
+	<tr>
+		<td>Success in past G classes</td>
+		<td>
+			<input type="radio" name="past_success" value="passed" /> Passed at least one<br />
+			<input type="radio" name="past_success" value="struggled" /> Barely made it<br />
+			<input type="radio" name="past_success" value="failed" /> Failed a past class<br />
+			<input type="radio" name="past_success" value="lucky" /> Never had him before
+		</td>
+	</tr>
+</table>
+
+<div>
+		<input type="hidden" name="you_were_doomed" value="Before you even started. Sorry." />
+		<input type="submit" name="determine_grade" value="See actual grade" />
+		<input type="reset" value="Realize you have unrealistic expectations and try again" />
+</div>
+</form>
+</body>
+</html>
