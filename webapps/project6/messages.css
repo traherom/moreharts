@@ -1,0 +1,44 @@
+body
+{
+	text-align: center;
+	overflow: hidden;
+}
+
+#post
+{
+	margin-bottom: 2em;
+}
+
+#submitPrompt
+{
+	border: 1px solid #888; 
+	font-size: 1.3em;
+	padding: .25em;
+	margin: .25em;
+	color: #888;
+	background-color: #FFF;
+	display: none;
+}
+
+#newMsg
+{
+	border: 2px solid #000;
+	background-color: #FFF;
+	color: #000;
+	font-size: 1.5em;
+	padding: .5em;
+	width: 20em;
+}
+#newMsg.default
+{
+	border: 2px solid #888;
+	color: #888;
+	background-color: inherit;
+}
+
+#latestMsg
+{
+	font-weight: bold;
+	font-size: 1.5em;
+}
+

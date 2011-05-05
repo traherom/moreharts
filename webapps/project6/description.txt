@@ -1,0 +1,2 @@
+<p>Really simple demo of AJAX from scratch.</p>
+<p>'Cause this page doesn't use AJAX at all.</p>

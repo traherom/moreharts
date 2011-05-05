@@ -1,0 +1,24 @@
+#message
+{
+	text-align: center;
+	background-color: #0AA;
+	color: inherit;
+}
+#error
+{
+	text-align: center;
+	background-color: #A00;
+	color: #FFF;
+}
+
+th
+{
+	text-align: left;
+	background-color: #DDF;
+	color: inherit;
+}
+
+.expandable
+{
+	display: none;
+}

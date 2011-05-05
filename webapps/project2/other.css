@@ -1,0 +1,114 @@
+/* Form */
+#params
+{
+	position: absolute;
+	top: 100px;
+	left: 10px;
+	z-index: 10;
+}
+#params input[type=text]
+{
+	border-size: 2px;
+	border-style: solid;
+	width: 4em;
+	padding: 5px;
+}
+.good 
+{
+	border-color: #4F4;
+}
+.bad
+{
+	border-color: #F44;
+}
+
+/* Text selection menu */
+#menu
+{
+	position: absolute;
+	top: 100px;
+	right: 10px;
+	font-size: 1em;
+	border: 1px solid #CCC;
+	background-color: #000;
+	z-index: 21;
+}
+#menu .title
+{
+	font-weight: bold;
+	display: block;
+	text-align: center;
+	font-size: 1.5em;
+}
+#menu_links
+{
+	height: 0;
+	overflow: hidden;
+}
+#menu a
+{
+	display: block;
+	float: none;
+	border-width: 0;
+	white-space: nowrap;
+	width: 100%;
+	padding: 0;
+	margin: 0;
+}
+
+/* Link back to people' choice */
+#link_back
+{
+	position: absolute;
+	bottom: 100px;
+	right: 10px;
+	width: auto;
+	padding: .2em;
+	font-size: 1em;
+	z-index: 20;
+}
+
+/* Moving box of doom */
+#mover
+{
+	position: absolute;
+	border: 1px solid #FFF;
+	height: 100px;
+	width: 100px;
+	z-index: 1;
+}
+
+/* Scroll arrows */
+#top_scroll, #bottom_scroll
+{
+	position: absolute;
+	left: 0;
+	background-image: url("fade.png");
+	background-repeat: repeat-x;
+	height: 100px;
+	width: 100%;
+	text-align: center;
+	z-index: 10;	
+}
+#top_scroll
+{
+	top: 0;
+	background-position: bottom right;
+}
+#bottom_scroll
+{
+	bottom: 0;
+	background-position: top right;
+}
+#top_scroll img, #bottom_scroll img
+{
+	position: relative;
+	top: 25px;
+	left: 0;
+}
+.hover
+{
+	background-color: white;
+}
+
+/*  */
