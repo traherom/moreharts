@@ -1,0 +1,13 @@
+(FUNCTION  main  []
+  (BB 0
+    (OPER 7 Push []  [(m EBP)])
+    (OPER 8 Mov [(m EBP)]  [(m ESP)])
+    (OPER 4 Mov [(r 1)]  [(i 1000)])
+    (OPER 5 Mov [(r 2)]  [(i 2000)])
+  )
+  (BB 1
+    (OPER 9 Mov [(m ESP)]  [(m EBP)])
+    (OPER 10 Pop [(m EBP)]  [])
+    (OPER 3 Return []  [(m EAX)])
+  )
+)
