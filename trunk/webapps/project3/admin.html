@@ -1,0 +1,185 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+   <head>
+      <link rel="icon" href="image/favicon.ico" />
+      <link rel="shortcut icon" href="image/favicon.ico" />
+      <link rel="stylesheet" type="text/css" href="style/project3.css" />
+      
+      <script type="text/javascript" src="http://ajax.googleapis.com/ajax/libs/jquery/1.4.2/jquery.min.js"></script>
+      <script type="text/javascript" src="script/connectivity.js"></script>
+      <script type="text/javascript" src="script/external.js"></script>
+      <script type="text/javascript" src="script/admin.js"></script>
+      <script type="text/javascript">
+			// check immedietly that the user is actually logged in and is administrator
+			$.getJSON("http://judah.cedarville.edu/rmoreha/IsLoggedIn?callback=?", function(data)
+ 		   {
+				if(data.userID == null)
+				{
+					window.location = "index.html";
+				}
+				else if(!data.isAdmin)
+				{
+					window.location = "loggedin.html";
+				}
+ 		   });
+		</script>
+      <title>Alex Laird | Web Applications (CS 4220) | Project 3 | Admin</title>
+	</head>
+   
+   <body id="project3LoggedIn" onload="externals();">
+   	<div id="content">
+         <div id="header">
+            <h1><span>Welcome to the People's Choice Awards</span></h1>
+         </div><div><div>
+         
+         <div id="leftColumn">
+         	<h1><span>Header</span></h1>
+			<form id="adminForm" onsubmit="return false;" action="#">
+         	<div align="center"><h1><span>Admin</span></h1></div>
+
+			<table class="formTable">
+				<tr>
+					<td>
+						<h4>&nbsp;&nbsp;Project Management</h4>
+						<table>
+							<tr>
+								<td>
+									&nbsp;&nbsp;&nbsp;<select id="openProjSelect">
+										<option value="">Loading...</option>
+									</select>
+								</td>
+								<td><input type="button" id="openProj" value="Open Project" /></td>
+							</tr>
+								<tr>
+								<td>
+									&nbsp;&nbsp;&nbsp;<select id="closeProjSelect">
+										<option value="">Loading...</option>
+									</select>
+								</td>
+								<td><input type="button" id="closeProj" value="Close Project" /></td>
+							</tr>
+							<tr>
+								<td>
+									&nbsp;&nbsp;&nbsp;<select id="projSelect">
+										<option value="">Loading...</option>
+									</select>
+								</td>
+								<td>
+									<input type="button" id="editProj" value="Edit Project" />
+									<br />
+									<input type="button" id="deleteProj" value="Delete Project" />
+								</td>
+							</tr>
+						</table>
+					</td>
+					<td>
+						<h4 id="createProjTitle">&nbsp;&nbsp;Create Project</h4>
+						<h4 id="editProjTitle">&nbsp;&nbsp;Edit Project</h4>
+						<table>
+							<tr>
+								<td>Name:</td>
+								<td><input type="text" name="projName" id="projName" /></td>
+							</tr>
+							<tr>
+								<td>&nbsp;&nbsp;&nbsp;Partners:</td>
+								<td>
+									<input type="checkbox" name="projPartners" id="projPartners" />
+									This is a partner project
+								</td>
+							</tr>
+							<tr>
+								<td>&nbsp;</td>
+								<td>
+									<input type="button" name="createProj" id="createProj" value="Create Project" />
+									<input type="button" name="editProjCommit" id="editProjCommit" value="Save" />
+									<input type="button" name="editProjCancel" id="editProjCancel" value="Cancel" />
+								</td>
+							</tr>
+						</table>
+					</td>
+				</tr>
+				<tr>
+					<td id="project_info" colspan="2"></td>
+				</tr>
+			</table>
+
+			<table class="formTable">
+				<tr>
+					<td>
+						<h4>&nbsp;&nbsp;User Management</h4>
+						<table>
+							<tr>
+								<td>
+									&nbsp;&nbsp;&nbsp;<select id="userSelect">
+										<option value="">Loading...</option>
+									</select>
+								</td>
+								<td>
+									<input type="button" id="editUser" value="Edit User" /><br />
+									<input type="button" id="deleteUser" value="Delete User" />
+								</td>
+							</tr>
+						</table>
+					</td>
+					<td>
+						<h4 id="createUserTitle">&nbsp;&nbsp;Create User</h4>
+						<h4 id="editUserTitle">&nbsp;&nbsp;Edit User</h4>
+						<table>
+							<tr>
+								<td>User Name:</td>
+								<td><input type="text" name="userName" id="userName" /></td>
+							</tr>
+							<tr>
+								<td>Email:</td>
+								<td><input type="text" name="userEmail" id="userEmail" /></td>
+							</tr>
+							<tr>
+								<td>&nbsp;&nbsp;&nbsp;Display Name:</td>
+								<td><input type="text" name="userDisplayName" id="userDisplayName" /></td>
+							</tr>
+							<tr>
+								<td>Password:</td>
+								<td><input type="text" name="userPassword" id="userPassword" /></td>
+							</tr>
+							<tr>
+								<td></td>
+								<td>
+									<input type="button" name="createUser" id="createUser" value="Create User" />
+									<input type="button" name="editUserCommit" id="editUserCommit" value="Save" />
+									<input type="button" name="editUserCancel" id="editUserCancel" value="Cancel" />
+								</td>
+							</tr>
+						</table>
+					</td>
+				</tr>
+				<tr>
+					<td id="user_info" colspan="2"></td>
+				</tr>
+			</table>
+
+			</form>
+
+            <h3><span>Footer</span></h3>
+         </div>
+         
+         <div id="rightColumn">
+           	<h2><span>Header</span></h2>
+	            <div align="center">
+               	<div id="admin">
+                     <h5><span>Account</span></h5>
+                     <p class="p2"><a href="loggedin.html">Back</a> to the People's Choice main.</p>
+                  </div>
+                  <button id="logoutButton" onclick="logout();">Logout</button><br />
+   	         </div>
+            <h4><span>Footer</span></h4>
+         </div>
+         
+         <div id="footer">
+            <p class="p1"><span>Go <a id="back" href="../cs4220.html" title="Back to my project's main page!">back</a> to my project's main menu.</span></p>
+            <p class="p2">Created in 2010 by <a href="http://www.alexlaird.net/" title="This is my real website, which you should check out" rel="external">Alex Laird</a> and <a href="http://traherom.com" rel="external">Ryan Morehart</a>. If you feel you have reached this page in error, panic is an appropriate reaction.</p>
+         </div>
+      </div></div></div>
+   </body>
+</html>

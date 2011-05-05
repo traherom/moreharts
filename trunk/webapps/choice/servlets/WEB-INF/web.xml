@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="ISO-8859-1"?>
+
+<!DOCTYPE web-app
+    PUBLIC "-//Sun Microsystems, Inc.//DTD Web Application 2.3//EN"
+    "http://java.sun.com/dtd/web-app_2_3.dtd">
+
+<web-app>
+	<!-- User -->
+	<servlet>
+		<servlet-name>login</servlet-name>
+		<servlet-class>User</servlet-class>
+	</servlet>
+	<servlet-mapping>
+		<servlet-name>login</servlet-name>
+		<url-pattern>/LoginCheck</url-pattern>
+	</servlet-mapping>
+	
+	<servlet>
+		<servlet-name>userlist</servlet-name>
+		<servlet-class>User</servlet-class>
+	</servlet>
+	<servlet-mapping>
+		<servlet-name>userlist</servlet-name>
+		<url-pattern>/GetUserList</url-pattern>
+	</servlet-mapping>
+	
+	<servlet>
+		<servlet-name>checkLogin</servlet-name>
+		<servlet-class>User</servlet-class>
+	</servlet>
+	<servlet-mapping>
+		<servlet-name>checkLogin</servlet-name>
+		<url-pattern>/IsLoggedIn</url-pattern>
+	</servlet-mapping>
+	
+	<servlet>
+		<servlet-name>changePw</servlet-name>
+		<servlet-class>User</servlet-class>
+	</servlet>
+	<servlet-mapping>
+		<servlet-name>changePw</servlet-name>
+		<url-pattern>/ChangePassword</url-pattern>
+	</servlet-mapping>
+
+	<servlet>
+		<servlet-name>createUser</servlet-name>
+		<servlet-class>User</servlet-class>
+	</servlet>
+	<servlet-mapping>
+		<servlet-name>createUser</servlet-name>
+		<url-pattern>/CreateUser</url-pattern>
+	</servlet-mapping>
+	
+	<servlet>
+		<servlet-name>deleteUser</servlet-name>
+		<servlet-class>User</servlet-class>
+	</servlet>
+	<servlet-mapping>
+		<servlet-name>deleteUser</servlet-name>
+		<url-pattern>/DeleteUser</url-pattern>
+	</servlet-mapping>
+	
+	<servlet>
+		<servlet-name>getUser</servlet-name>
+		<servlet-class>User</servlet-class>
+	</servlet>
+	<servlet-mapping>
+		<servlet-name>getUser</servlet-name>
+		<url-pattern>/GetUser</url-pattern>
+	</servlet-mapping>
+
+	<!-- Configuration -->
+	<context-param>
+		<param-name>jdbcConnectionURL</param-name>
+		<param-value>jdbc:mysql://john.cedarville.edu/cs4220?user=cs4220</param-value>
+	</context-param>
+</web-app>
