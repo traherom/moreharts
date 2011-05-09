@@ -48,8 +48,6 @@ class EditorWindow(gtk.Window):
 		self.__mainBox.pack_start(scroll, True, True, 0)
 		scroll.show()
 		
-		self.__text.connect('key_press_event', self.key_pressed)
-		
 		# Create search area (do not show, only activates on shortcut key)
 		self.__searchAreaTable = gtk.Table(2, 2, False)
 		self.__mainBox.pack_start(self.__searchAreaTable, False, False, )
@@ -65,14 +63,17 @@ class EditorWindow(gtk.Window):
 		self.__searchEntry.show()
 		
 		# Replace area
-		replaceLabel = gtk.Label("Replace:")
-		replaceLabel.set_justify(gtk.JUSTIFY_RIGHT)
-		self.__searchAreaTable.attach(replaceLabel, 0, 1, 1, 2, 0, gtk.FILL)
-		replaceLabel.show()
+		self.__replaceLabel = gtk.Label("Replace:")
+		self.__replaceLabel.set_justify(gtk.JUSTIFY_RIGHT)
+		self.__searchAreaTable.attach(self.__replaceLabel, 0, 1, 1, 2, 0, gtk.FILL)
+		self.__replaceLabel.show()
 		
 		self.__replaceEntry = gtk.Entry()
 		self.__searchAreaTable.attach(self.__replaceEntry, 1, 2, 1, 2, gtk.EXPAND | gtk.FILL)
 		self.__replaceEntry.show()
+		
+		# Basically ready to go, start accepting keys
+		self.connect('key_press_event', self.key_pressed)
 		
 		# Do we have a file to open?
 		if self.__filename is not None:
@@ -91,16 +92,18 @@ class EditorWindow(gtk.Window):
 		self.__isChanged = True
 		self.__update_title()
 		
+		print("Key:", data.keyval)
+		
 		if data.state & gtk.gdk.CONTROL_MASK != 0:
 			# Ctrl+...
 			print("Control+" + str(data.keyval))
 			
 			if data.keyval == 115: # s
 				self.save_file()
-			elif data.keyval == 102: # f
-				self.open_find()
 			elif data.keyval == 114: # r
 				self.open_replace()
+			elif data.keyval == 102: # f
+				self.open_search()
 				
 		elif data.state & gtk.gdk.SHIFT_MASK != 0:
 			# Shift+...
@@ -108,6 +111,9 @@ class EditorWindow(gtk.Window):
 		elif data.state & gtk.gdk.MOD1_MASK != 0:
 			# Alt+...
 			print("Alt+" + str(data.keyval))
+		elif data.keyval == 65307:
+			# Esc, close anything that's open other than the main editing window
+			self.hide_search()
 	
 	def open_file(self, filename):
 		"""
@@ -155,10 +161,36 @@ class EditorWindow(gtk.Window):
 		self.__isChanged = False
 		self.__update_title()
 	
-	def open_find(self):
+	def open_search(self):
+		"""
+		Opens the search box, hiding the replacement components
+		"""
+		# Hide the replace stuff
+		self.__replaceLabel.hide()
+		self.__replaceEntry.hide()
+		
+		# Show the search area and focus the keyboard
+		self.__searchAreaTable.show()
+		self.__searchEntry.grab_focus()
+		
+	def hide_search(self):
 		"""
 		Opens the search box
 		"""
+		self.__searchAreaTable.hide()
+		
+		# Return focus to editor
+		self.__text.grab_focus()
+	
+	def open_replace(self):
+		"""
+		Open the search and replace box
+		"""
+		# Hide the replace stuff
+		self.__replaceLabel.show()
+		self.__replaceEntry.show()
+		
+		# Show the search area and focus the keyboard
 		self.__searchAreaTable.show()
 		self.__searchEntry.grab_focus()
 	
