@@ -22,7 +22,7 @@ class EditorWindow(gtk.Window):
 		
 		# Save off reference to the running instance we're a part of
 		self.__editor = editor
-		self.__filename = None
+		self.__filename = filename
 		self.__isChanged = False
 		
 		# Basic window stuff
@@ -37,10 +37,18 @@ class EditorWindow(gtk.Window):
 		
 		# Create editor area and attach the main handler we'll be relying on
 		self.__text = gtksourceview.View()
-		self.__mainBox.pack_start(self.__text, True, True, 0)
-		self.__text.show()
+		self.__text.set_show_line_numbers(True)
+		self.__text.set_auto_indent(True)
+		self.__text.set_smart_home_end(True)
 		
-		self.__text.connect('key_press_event', self.keyPressed)
+		scroll = gtk.ScrolledWindow()
+		scroll.set_policy(gtk.POLICY_AUTOMATIC, gtk.POLICY_AUTOMATIC)
+		scroll.add(self.__text)
+		self.__text.show()
+		self.__mainBox.pack_start(scroll, True, True, 0)
+		scroll.show()
+		
+		self.__text.connect('key_press_event', self.key_pressed)
 		
 		# Create search area (do not show, only activates on shortcut key)
 		self.__searchAreaTable = gtk.Table(2, 2, False)
@@ -68,41 +76,107 @@ class EditorWindow(gtk.Window):
 		
 		# Do we have a file to open?
 		if self.__filename is not None:
-			self.openFile(filename)
+			self.open_file(filename)
 		
 	def destroy(self, widget, data = None):
 		"""
 		Kills the window and lets the editor manager know we're dead
 		"""
-		self.__editor.stopManagingEditor(self)
+		self.__editor.stop_managing_editor(self)
 	
-	def keyPressed(self, widget, data = None):
+	def key_pressed(self, widget, data = None):
 		"""
-		Watches for all the cool
+		Know when we change and when a shortcut is entered
 		"""
-		print(widget)
-		pass
+		self.__isChanged = True
+		self.__update_title()
+		
+		if data.state & gtk.gdk.CONTROL_MASK != 0:
+			# Ctrl+...
+			print("Control+" + str(data.keyval))
+			
+			if data.keyval == 115: # s
+				self.save_file()
+			elif data.keyval == 102: # f
+				self.open_find()
+			elif data.keyval == 114: # r
+				self.open_replace()
+				
+		elif data.state & gtk.gdk.SHIFT_MASK != 0:
+			# Shift+...
+			print("Shift+" + str(data.keyval))
+		elif data.state & gtk.gdk.MOD1_MASK != 0:
+			# Alt+...
+			print("Alt+" + str(data.keyval))
 	
-	def openFile(filename):
+	def open_file(self, filename):
 		"""
 		Opens the given file. Prompts the user if the current file is unsaved
 		"""
 		if self.__isChanged:
 			pass
 		
-		print("Opening " + filename)
-		
 		# Read in new file
 		self.__filename = filename
-		f = open(self.__filename, 'r')
 		buf = self.__text.get_buffer()
+		
+		f = open(self.__filename, 'r')
 		buf.set_text(f.read())
 		f.close()
 		
 		self.__isChanged = False
 		
+		# Highlighting mode
+		self.set_language(self.detect_language())
+		
 		# Ensure our title is correct
 		self.__update_title()
+	
+	def save_file(self):
+		"""
+		Saves the current file to disk. If there is no filename currently set,
+		prompts the user for one
+		"""
+		if self.__filename is None:
+			chooser = gtk.FileChooserDialog("Save As...", self,
+				gtk.FILE_CHOOSER_ACTION_SAVE,
+				('Save', 0, 'Cancel', 1))
+			chooser.set_do_overwrite_confirmation(True)
+			#chooser.connect('', )
+			chooser.show()
+			return
+		
+		buf = self.__text.get_buffer()
+		
+		f = open(self.__filename, 'w')
+		f.write(buf.get_text(buf.get_start_iter(), buf.get_end_iter()))
+		f.close()
+		
+		self.__isChanged = False
+		self.__update_title()
+	
+	def open_find(self):
+		"""
+		Opens the search box
+		"""
+		self.__searchAreaTable.show()
+		self.__searchEntry.grab_focus()
+	
+	def set_language(self, lang):
+		"""
+		Changes the language being highligted
+		"""
+		pass
+		
+	def detect_language(self):
+		"""
+		Guesses the language that the current file is in. If no file is open,
+		it guesses "None"
+		"""
+		if self.__filename is None:
+			return None
+		else:
+			return 'C'
 	
 	def __update_title(self):
 		"""
@@ -114,14 +188,16 @@ class EditorWindow(gtk.Window):
 		else:
 			title = ''
 		
-		if self.__editor.isProjectOpen():
-			title += self.__editor.projectName() + ' - '
+		if self.__editor.is_project_open():
+			title += self.__editor.project_name() + ' - '
 	
 		if self.__filename is None:
 			title += "New File"
 		else:
-			title += self.__file_name
-			
+			title += self.__filename
+		
+		title += " - SparseEdit"
+		
 		# Actually set the title
 		self.set_title(title)
-			
+

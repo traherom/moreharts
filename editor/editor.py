@@ -1,5 +1,6 @@
 #!/usr/bin/python -3
 import sys
+import argparse
 import gtk
 from gui import EditorWindow
 
@@ -9,7 +10,16 @@ class SparseEdit:
 		self.__project = None
 		
 		# Are there any files given on the command line?
+		parser = argparse.ArgumentParser(description='Simple and austere text editor')
+		parser.add_argument('files', metavar='Files', nargs='*')
+		res = parser.parse_args(argv[1:])
+		files = res.files
 		
+		if len(files) > 0:
+			for f in files:
+				self.open_file(f)
+		else:
+			self.new_file()
 	
 	def start(self):
 		"""Runs GTK's main loop, starting the event sytem"""
@@ -17,13 +27,13 @@ class SparseEdit:
 	
 	##############################
 	# File management functions
-	def openFile(self, filename):
+	def open_file(self, filename):
 		"""Opens the given file"""
 		newWin = EditorWindow(self, filename)
 		self.__editors.append(newWin)
 		newWin.show()
 	
-	def newFile(self):
+	def new_file(self):
 		"""Creates a new editor window that is not pointed to anything"""
 		newWin = EditorWindow(self)
 		self.__editors.append(newWin)
@@ -31,7 +41,7 @@ class SparseEdit:
 	
 	###############################
 	# Window management functions
-	def stopManagingEditor(self, editor):
+	def stop_managing_editor(self, editor):
 		"""
 		Removes the given editor from the list of editor windows we have
 		open. If this was the last window we had, stop execution
@@ -42,14 +52,14 @@ class SparseEdit:
 		if self.__editors == []:
 			gtk.main_quit()
 	
-	def isProjectOpen(self):
+	def is_project_open(self):
 		"""Returns True if a project is currently open"""
 		if self.__project is None:
 			return False
 		else:
 			return True
 	
-	def projectName(self):
+	def project_name(self):
 		"""
 		Returns the name of the current project or None if there is no
 		project.
