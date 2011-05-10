@@ -1,8 +1,9 @@
-#!/usr/bin/python -3
+#!/usr/bin/python 
 import sys
 import argparse
-import gtk
-from gui import EditorWindow
+from gi.repository import Gtk
+
+import gui
 
 class SparseEdit:
 	def __init__(self, argv):
@@ -23,19 +24,19 @@ class SparseEdit:
 	
 	def start(self):
 		"""Runs GTK's main loop, starting the event sytem"""
-		gtk.main()	
+		Gtk.main()	
 	
 	##############################
 	# File management functions
 	def open_file(self, filename):
 		"""Opens the given file"""
-		newWin = EditorWindow(self, filename)
+		newWin = gui.EditorWindow(self, filename)
 		self.__editors.append(newWin)
 		newWin.show()
 	
 	def new_file(self):
 		"""Creates a new editor window that is not pointed to anything"""
-		newWin = EditorWindow(self)
+		newWin = gui.EditorWindow(self)
 		self.__editors.append(newWin)
 		newWin.show()
 	
@@ -50,7 +51,7 @@ class SparseEdit:
 		
 		# Should we finish and close completely?
 		if self.__editors == []:
-			gtk.main_quit()
+			Gtk.main_quit()
 	
 	def is_project_open(self):
 		"""Returns True if a project is currently open"""
