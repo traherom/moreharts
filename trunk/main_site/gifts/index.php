@@ -13,10 +13,21 @@
 	<script src="main.js"></script>
 </head>
 <body>
-	<div data-role="page" id="home">
+	<div data-role="page" id="home" data-theme="b">
 		<div  data-role="header">Gift Exchange</div> 
-		<div  data-role="content">...</div> 
-		<div  data-role="footer">...</div> 
+		<div  data-role="content">
+			<form action="group_management.php" method="post">
+				<input type="search" name="group-search" />
+				<input type="submit" name="find" value="Find" />
+				<input type="submit" name="find" value="Create" />
+			</form>
+			<ul data-role="listview" data-inset="true" data-theme="c" data-dividertheme="b">
+				<li data-role="list-divider">Test</li>
+				<li><a href="#create-group">Create group</a></li>
+				<li><a href="">Create group</a></li>
+			</ul>
+		</div> 
+		<div  data-role="footer">Copy</div> 
 	</div>
 	<div data-role="page" id="login">
 		<div  data-role="header">Login</div> 
