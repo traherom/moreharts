@@ -1,3 +1,4 @@
 <?php
-system('svn up')
+print('Updating: ');
+passthru('svn up');
 ?>
