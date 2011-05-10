@@ -3,6 +3,10 @@ pygtk.require('2.0')
 from gi.repository import Gtk, GtkSource, Gdk
 import mimetypes
 
+# There are big dereferencing problems with the language manager,
+# it helps to just have the one instance out here
+lang_manager = GtkSource.SourceLanguageManager.get_default()
+
 class EditorWindow(Gtk.Window):
 	"""
 	Editor window that handles majority of interaction with user. Currently
@@ -146,6 +150,7 @@ class EditorWindow(Gtk.Window):
 		self.__buffer.set_modified(False)
 		
 		# Highlighting mode based on file opened
+		#print('Mode:', self.detect_language())
 		self.set_language(self.detect_language())
 		
 		# Ensure our title is correct
@@ -218,26 +223,24 @@ class EditorWindow(Gtk.Window):
 		highlighting
 		"""
 		# Disable highlighting until the new one is set, for performance
-		#self.__buffer.set_highlight_syntax(False)
+		self.__buffer.set_highlight_syntax(False)
 		
-		#if lang is not None:
-			#self.__buffer.set_language(lang)
-			#self.__buffer.set_highlight_syntax(True)
+		if lang is not None:
+			print("Language: ", lang.get_style_ids(), lang.get_hidden(), lang.get_name())
+			self.__buffer.set_language(lang)
+			self.__buffer.set_highlight_syntax(True)
 		
 	def detect_language(self):
 		"""
 		Guesses the language that the current file is in. If no file is open,
 		it guesses "None"
 		"""
-		manager = GtkSource.SourceLanguageManager.get_default()
-		
 		if self.__filename is None:
 			return None
 		else:
 			mime = mimetypes.guess_type(self.__filename)[0]
-			lang = manager.guess_language(self.__filename, mime)
-			self.__buffer.set_language(lang)
-			#return lang
+			lang = lang_manager.guess_language(self.__filename, mime)
+			return lang
 	
 	def __update_title(self):
 		"""
