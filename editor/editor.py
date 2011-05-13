@@ -53,6 +53,19 @@ class SparseEdit:
 		if self.__editors == []:
 			Gtk.main_quit()
 	
+	def switch_to_next_editor(self, curr):
+		"""
+		Switches to the editor "after" the current one
+		"""
+		nextIndex = self.__editors.index(curr) + 1
+		if len(self.__editors) == nextIndex:
+			nextIndex = 0
+		
+		self.__editors[nextIndex].present()
+	
+	#######################
+	# Project management
+	
 	def is_project_open(self):
 		"""Returns True if a project is currently open"""
 		if self.__project is None:
