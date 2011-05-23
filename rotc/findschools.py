@@ -30,7 +30,7 @@ def readInMissingBelts(filename):
 
     missing = []
     for belt in belts:
-        if len(belt) < 9 or belt[8] != 'x':
+        if len(belt) < 9 or (belt[8] != 'x' and belt[8] != '-'):
             # Found someone without a return
             # Do they have an assigned number?
             if belt[3].strip() == '':
@@ -91,5 +91,5 @@ def main(argv=None):
     return 0
 
 if __name__ == "__main__":
-    sys.exit(main(['find.py', 'belts.csv', 'curoster.csv']))
+    sys.exit(main(['find.py', 'belts.csv', 'udroster.csv']))
     
