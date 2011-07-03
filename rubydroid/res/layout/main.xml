@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+android:orientation="vertical"
+	android:layout_width="fill_parent"
+	android:layout_height="fill_parent"
+	>
+	<TextView  
+		android:layout_width="fill_parent" 
+		android:layout_height="wrap_content" 
+		android:text="Welcome to Ruby Droid"
+		/>
+	<Button android:id="@+id/openConsole"
+		android:layout_width="fill_parent"
+		android:layout_height="wrap_content"
+		android:text="@string/open_console"
+		android:padding="12sp"
+		android:onClick="openConsoleClicked"
+		/>
+	<Button android:id="@+id/loadFile"
+		android:layout_width="fill_parent"
+		android:layout_height="wrap_content"
+		android:text="@string/load_file"
+		android:padding="12sp"
+		android:onClick="loadFileClicked"
+		/>
+</LinearLayout>
+
