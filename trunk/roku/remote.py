@@ -2,6 +2,7 @@
 import sys
 import argparse
 import socket
+import time
 
 class RokuRemote:
 	"""
@@ -78,11 +79,14 @@ class RokuRemote:
 		self.__PROMPT_START_STATE = 1
 		self.__PROMPT_COMPLETE_STATE = 2
 
+		# A prompt could start imediately at the beginning of the line
+		# and we wouldn't see the \n, so assume we're beginning now
+		state = self.__PROMPT_START_STATE
+
 		data = ''
-		state = self.__NO_PROMPT_STATE
 		while state != self.__PROMPT_COMPLETE_STATE:
 			b = self.__conn.recv(1)
-				
+
 			# Check for prompt state change
 			if state == self.__NO_PROMPT_STATE and b == b'\n':
 				state = self.__PROMPT_START_STATE
@@ -108,8 +112,64 @@ class RokuRemote:
 		if cmd[-1] != '\n':
 			cmd = ''.join([cmd, '\n'])
 
-		print('> ', cmd)
+		print('>', cmd)
 		self.__conn.sendall(cmd.encode())
+
+	def send_home(self):
+		self.send('press home')
+		self.read_to_prompt()
+	
+	def send_left(self):
+		self.send('press left')
+		self.read_to_prompt()
+
+	def send_right(self):
+		self.send('press right')
+		self.read_to_prompt()
+
+	def send_up(self):
+		self.send('press up')
+		self.read_to_prompt()
+
+	def send_down(self):
+		self.send('press down')
+		self.read_to_prompt()
+
+	def send_rwd(self):
+		self.send('press back')
+		self.read_to_prompt()
+
+	def send_ff(self):
+		self.send('press fwd')
+		self.read_to_prompt()
+
+	def send_pause(self):
+		self.send('press pause')
+		self.read_to_prompt()
+
+	def send_select(self):
+		self.send('press select')
+		self.read_to_prompt()
+
+	def open_bitrate_screen(self):
+		"""
+		Sends the sequence of commands to open the bitrate-selection screen
+		"""
+		for x in range(5):
+			self.send_home()
+			time.sleep(.5)
+		for x in range(3):
+			self.send_rwd()
+			time.sleep(.5)
+		for x in range(2):
+			self.send_ff()
+			time.sleep(.5)	
+
+	def open_secret_screen(self):
+		"""
+		Sends the sequence of commands to open the 'secret' Roku screen
+		"""
+		
 
 	def locate_roku(self):
 		"""
@@ -122,11 +182,11 @@ class RokuRemote:
 		"""
 		Disconnects from the Roku
 		"""
-		self.__conn.shutdown()
+		self.__conn.shutdown(socket.SHUT_RDWR)
 		self.__conn.close()
 
 	def start(self):
-		print('Done')
+		pass
 
 	def __str__(self):
 		"""
@@ -148,7 +208,7 @@ def main(argv = None):
  	# Run application
 	app = RokuRemote(sys.argv)
 	app.start()
-	app.send('press home')
+	app.send_secret()
         
 if __name__ == '__main__':
 	main(sys.argv)
