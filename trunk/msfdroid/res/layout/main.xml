@@ -7,7 +7,18 @@
 <TextView  
     android:layout_width="fill_parent" 
     android:layout_height="wrap_content" 
-    android:text="Hello World, MainListing"
+    android:text="List Exploits"
+    android:ellipsize="marquee"
+    android:gravity="center_vertical"
+    android:lineSpacingExtra="14.5sp"
+    />
+<TextView  
+    android:layout_width="fill_parent" 
+    android:layout_height="wrap_content" 
+    android:text="Ruby Console"
+    android:ellipsize="marquee"
+    android:gravity="center_vertical"
+    android:lineSpacingExtra="14.5sp"
     />
 </LinearLayout>
 

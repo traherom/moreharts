@@ -76,4 +76,12 @@
     -->
     <setup />
 
+    <target name="install" depends="debug">
+        <exec executable="adb">
+	    <arg value="install" />
+	    <arg value="-r" />
+            <arg value="${out.dir}/rubydroid-debug.apk" />
+	</exec>
+    </target>
+
 </project>
