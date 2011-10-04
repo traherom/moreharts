@@ -3,6 +3,109 @@ import sys
 import argparse
 import socket
 import time
+import locale
+
+# Interface imports
+try:
+	import curses
+	import curses.wrapper
+
+	curses_available = True
+except ImportError:
+	curses_available = False
+
+class RokuRemoteUI:
+	"""
+	All Roku UI's should implement this
+	"""
+	def start(self):
+		raise NotImplementedError("Implement me")
+
+class RokuRemoteCurses(RokuRemoteUI):
+	"""
+	Terminal-based UI
+	"""
+	def __init__(self, remote):
+		"""
+		Save off the given remote
+		"""
+		self.__remote = remote
+
+	def start(self):
+		"""
+		Initialize curses
+		"""
+		locale.setlocale(locale.LC_ALL, '')
+		self.__locale_code = locale.getpreferredencoding()
+
+		curses.wrapper(self.__input_monitor)
+
+	def __input_monitor(self, stdscr):
+		"""
+		Draw display and watch for keys from curses
+		"""
+		max_row, max_col = stdscr.getmaxyx()
+		mid_row = max_row / 2
+		mid_col = max_col / 2
+		
+		ui =	(('Connected to ' + self.__remote.get_roku_id()),
+				(()),
+				(('Up')),
+				(('Left', 'OK', 'Right')),
+				(('Down')))
+		line_num = 0
+		for line in ui:
+			# Combine and print it out
+			s = '  '.join(line)
+			stdscr.addstr(line_num, round(mid_col + len(s) / 2), s)
+			
+			# New line
+			line_num = line_num + 1
+		
+		while True:
+			k = stdscr.getkey()
+			stdscr.addstr(str(k))
+
+class RokuRemotePlainTerminal(RokuRemoteUI):
+	"""
+	Terminal-based UI
+	"""
+	def __init__(self, remote):
+		"""
+		Save off the given remote
+		"""
+		self.__remote = remote
+
+	def start(self):
+		"""
+		Show prompt, accept single-letter commands
+		"""
+		while True:
+			cmd = input('> ')
+			if cmd == 'l':
+				self.__remote.send_left()
+			elif cmd == 'r':
+				self.__remote.send_right()
+			elif cmd == 'u':
+				self.__remote.send_up()
+			elif cmd == 'd':
+				self.__remote.send_down()
+			elif cmd == 'ff':
+				self.__remote.send_ff()
+			elif cmd == 'rwd':
+				self.__remote.send_rwd()
+			elif cmd == 'h':
+				self.__remote.send_home()
+			elif cmd == 'i':
+				self.__remote.send_info()
+			elif cmd == 'p':
+				self.__remote.send_pause()
+			elif cmd == 'secret':
+				self.__remote.open_secret_screen()
+			elif cmd == 'bitrate':
+				self.__remote.open_bitrate_screen()
+			else:
+				print("Unrecognized command")
 
 class RokuRemote:
 	"""
@@ -13,7 +116,6 @@ class RokuRemote:
 		Creates the remote GUI and connection, unless the user specified just a few commands
 		to run on the command line
 		"""
-
 		# Parse command line
 		parser = argparse.ArgumentParser(description='Remote for the Roku media player')
 		parser.add_argument('ip', metavar='IP Address', nargs='*')
@@ -25,27 +127,59 @@ class RokuRemote:
 			self.__ip = None
 
 		# Search for Roku if not specified
-		if self.__ip is None:
-			self.__ip = self.locate_roku()
+		if self.__ip is not None:
+			self.__connect(self.__ip)
+		else:
+			self.locate_roku()
 			
 			# Found?
-			if self.__ip is None:
+			if self.__conn is None:
 				print("Unable to locate Roku on local network, please specify IP or host name on the command line")
 				quit()
 
+	def __connect(self, ip):
+		"""
+		Attempts to connect to the given ip on port 8080 and checks that
+		it responds like a Roku
+		"""
 		# Connect
-		self.__port = 8080
 		try:
 			self.__conn = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-			self.__conn.connect((self.__ip, self.__port))
+			self.__conn.connect((ip, 8080))
 		except socket.error as e:
 			print("Unable to connect to Roku: " + str(e))
 			quit()
-		
+			
 		# Read in the Roku ID information
 		self.__roku_id = self.read_line()
 		self.read_to_prompt()
+		
+		return self.__conn
+	
 
+	def locate_roku(self):
+		"""
+		Static function that returns the first IP address of a system on the local network
+		that has port 8080 open
+		"""
+		print('Searching for Roku on local network...')
+		
+		self.__conn = None
+		for i in range(254):
+			self.__connect('192.168.1.' + str(i))
+			if self.__conn is None:
+				print('Found a Roku at', self.__ip)
+				return
+
+	def disconnect(self):
+		"""
+		Disconnects from the Roku
+		"""
+		if self.__conn is not None:
+			self.__conn.shutdown(socket.SHUT_RDWR)
+			self.__conn.close()
+			self.__conn = None
+			
 	def __del__(self):
 		"""
 		Disconnect promperly (if that ever mattered)
@@ -67,7 +201,6 @@ class RokuRemote:
 		if line[-1] == '\r':
 			line[:-1]
 
-		print(line)
 		return line
 
 	def read_to_prompt(self):
@@ -102,8 +235,19 @@ class RokuRemote:
 				c = bytes.decode(b)
 				data = ''.join([data, c])
 		
-		print(data)
 		return data
+
+	def get_roku_id(self):
+		"""
+		Returns the ID of the Roku we're connected to
+		"""
+		return self.__roku_id
+
+	def get_roku_ip(self):
+		"""
+		Returns the IP of the Roku we're connected to
+		"""
+		return self.__ip
 
 	def send(self, cmd):
 		"""
@@ -112,7 +256,6 @@ class RokuRemote:
 		if cmd[-1] != '\n':
 			cmd = ''.join([cmd, '\n'])
 
-		print('>', cmd)
 		self.__conn.sendall(cmd.encode())
 
 	def send_home(self):
@@ -169,24 +312,15 @@ class RokuRemote:
 		"""
 		Sends the sequence of commands to open the 'secret' Roku screen
 		"""
-		
-
-	def locate_roku(self):
-		"""
-		Static function that returns the first IP address of a system on the local network
-		that has port 8080 open
-		"""
-		return "192.168.1.130"
-
-	def disconnect(self):
-		"""
-		Disconnects from the Roku
-		"""
-		self.__conn.shutdown(socket.SHUT_RDWR)
-		self.__conn.close()
-
-	def start(self):
-		pass
+		for x in range(5):
+			self.send_home()
+			time.sleep(.5)
+		for x in range(3):
+			self.send_ff()
+			time.sleep(.5)
+		for x in range(2):
+			self.send_rwd()
+			time.sleep(.5)
 
 	def __str__(self):
 		"""
@@ -205,10 +339,14 @@ def main(argv = None):
 	if argv is None:
 		argv = sys.argv
         
- 	# Run application
-	app = RokuRemote(sys.argv)
-	app.start()
-	app.send_secret()
+ 	# Run application with the best available UI
+	remote = RokuRemote(sys.argv)
+	if curses_available:
+		ui = RokuRemoteCurses(remote)
+	else:
+		ui = RokuRemotePlainTerminal(remote)
+
+	ui.start()
         
 if __name__ == '__main__':
 	main(sys.argv)

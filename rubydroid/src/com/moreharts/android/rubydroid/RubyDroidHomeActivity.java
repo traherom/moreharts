@@ -16,8 +16,15 @@ public class RubyDroidHomeActivity extends Activity
 
 	public void openConsoleClicked(View v)
 	{
+		try
+		{
 		Intent consoleIntent = new Intent(this, ConsoleActivity.class);
 		startActivity(consoleIntent);
+		}
+		catch(Throwable ex)
+		{
+			System.out.println(ex.getMessage());
+		}
 	}
 
 	public void loadFileClicked(View v)

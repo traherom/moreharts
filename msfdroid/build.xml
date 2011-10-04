@@ -76,4 +76,11 @@
     -->
     <setup />
 
+    <target name="install" depends="debug">
+       <exec executable="${sdk.dir}/platform-tools/adb">
+          <arg value="install" />
+          <arg value="${out.dir}/msfdroid-debug.apk" />
+       </exec>
+    </target>
+
 </project>
