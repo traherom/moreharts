@@ -4,6 +4,14 @@ import argparse
 import socket
 import time
 import locale
+import http.client
+
+# Get the best XML lib available
+try:
+	from lxml import etree
+except ImportError:
+	print('Please ensure python3-lxml is installed.')
+	exit(1)
 
 # Interface imports
 try:
@@ -100,6 +108,9 @@ class RokuRemotePlainTerminal(RokuRemoteUI):
 				self.__remote.send_info()
 			elif cmd == 'p':
 				self.__remote.send_pause()
+			elif cmd == 'search':
+				phrase = input('Search for: ')
+				self.__remote.send_search(phrase)
 			elif cmd == 'secret':
 				self.__remote.open_secret_screen()
 			elif cmd == 'bitrate':
@@ -113,6 +124,8 @@ class RokuRemote:
 	"""
 	Ties together the UI and connection to the Roku
 	"""
+	__ROKU_PORT = 8060
+
 	def __init__(self, argv):
 		"""
 		Creates the remote GUI and connection, unless the user specified just a few commands
@@ -128,34 +141,45 @@ class RokuRemote:
 		else:
 			self.__ip = None
 
-		# Search for Roku if not specified
+		# IP given?
 		if self.__ip is not None:
-			try:
-				self.__connect(self.__ip)
-			except socket.error as e:
-				print('Unable to connect to Roku at ' +  self.__ip + ':', e)
+			# Ensure it's valid and connect
+			model = self.__get_roku_info()
+
+			if model is not None:
+				self.__roku_model = model
+			else:
+				print('The given IP address (', self.__ip, ') does not appear to be a valid device', sep='')
+				quit()
 		else:
-			self.locate_roku()
-			
-			# Found?
-			if self.__conn is None:
+			# Attempt to locate
+			if not self.locate_roku():
 				print('Unable to locate Roku on local network, please specify IP or host name on the command line')
 				quit()
 
-	def __connect(self, ip):
+	def __get_roku_info(self):
 		"""
-		Attempts to connect to the given ip on port 8080 and checks that
-		it responds like a Roku
+		Retrieves the player information from the Roku. Returns None if it is
+		not a valid Roku device
 		"""
-		# Connect
-		self.__conn = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-		self.__conn.connect((ip, 8080))	
-			
-		# Read in the Roku ID information
-		self.__roku_id = self.read_line()
-		self.read_to_prompt()
-		
-		return self.__conn
+		home_page = self.send('/', request_type='GET')
+
+		# Should be an XML file
+		tree = etree.fromstring(home_page)
+		m = self.__find_in_response(tree, '/a:root/a:device/a:modelName')
+		if len(m) == 1:
+			return m[0].text
+		else:
+			return None
+
+	def __find_in_response(self, tree, xpath):
+		"""
+		Finds the element at the given path from the given element.
+		Useful as it defines the stupid namespaces that roku uses
+		"""
+		return tree.xpath(xpath, namespaces = {
+			'a' : 'urn:schemas-upnp-org:device-1-0'
+			})
 
 	def locate_roku(self):
 		"""
@@ -164,37 +188,34 @@ class RokuRemote:
 		"""
 		print('Searching for Roku on local network (assuming 192.168.1.0/24)... Trying .   ', end='')
 		sys.stdout.flush()
-		
-		# Don't waste too much time trying to connect
-		socket.setdefaulttimeout(.1)
 
-		self.__conn = None
 		for i in range(1, 254):
 			try:
+				# Status message
 				print('\b\b\b' + format(i, '03d'), end='')
 				sys.stdout.flush()
 
+				# Attempt to connect and query
 				self.__ip = '192.168.1.' + str(i)
-				self.__connect(self.__ip)
-				
-				if self.__conn is not None:
+				self.__roku_model = self.__get_roku_info()
+
+				# Work?
+				if self.__roku_model is not None:
 					print('\nFound a Roku at', self.__ip)
-					return
+					return True
 			except socket.error as e:
 				# Well clearly that one didn't work
 				pass
 
 		# Didn't find a Roku, but make sure we bump down to the next line
 		print()
+		return False
 
 	def disconnect(self):
 		"""
 		Disconnects from the Roku
 		"""
-		if self.__conn is not None:
-			self.__conn.shutdown(socket.SHUT_RDWR)
-			self.__conn.close()
-			self.__conn = None
+		self.__ip = None
 			
 	def __del__(self):
 		"""
@@ -206,62 +227,11 @@ class RokuRemote:
 			# Ignore, probably we weren't connected anyway
 			pass
 	
-	def read_line(self):
+	def get_model(self):
 		"""
-		Reads and returns a single line on the connection
+		Returns the model/description of the Roku
 		"""
-		line = ''
-		b = self.__conn.recv(1)
-		while b != b'\n':
-			c = bytes.decode(b)
-			line = ''.join([line, c])
-			b = self.__conn.recv(1)
-
-		# And remove the '\r' from the line
-		if line[-1] == '\r':
-			line[:-1]
-
-		return line
-
-	def read_to_prompt(self):
-		"""
-		Reads and returns all data until the Roku prompt (does not include 
-		the prompt itself). Includes the terminating \r\n
-		"""
-		self.__NO_PROMPT_STATE = 0
-		self.__PROMPT_START_STATE = 1
-		self.__PROMPT_COMPLETE_STATE = 2
-
-		# A prompt could start imediately at the beginning of the line
-		# and we wouldn't see the \n, so assume we're beginning now
-		state = self.__PROMPT_START_STATE
-
-		data = ''
-		while state != self.__PROMPT_COMPLETE_STATE:
-			b = self.__conn.recv(1)
-
-			# Check for prompt state change
-			if state == self.__NO_PROMPT_STATE and b == b'\n':
-				state = self.__PROMPT_START_STATE
-			elif state == self.__PROMPT_START_STATE:
-				if b == b'>':
-					state = self.__PROMPT_COMPLETE_STATE
-				else:
-					state = self.__NO_PROMPT_STATE
-			
-			# Add to data if needed
-			if state != self.__PROMPT_COMPLETE_STATE:
-				# Add to string
-				c = bytes.decode(b)
-				data = ''.join([data, c])
-		
-		return data
-
-	def get_roku_id(self):
-		"""
-		Returns the ID of the Roku we're connected to
-		"""
-		return self.__roku_id
+		return self.__roku_model
 
 	def get_roku_ip(self):
 		"""
@@ -269,50 +239,67 @@ class RokuRemote:
 		"""
 		return self.__ip
 
-	def send(self, cmd):
+	def send(self, url, request_type='POST', ip=None):
+		"""
+		Sends the given URL request to the Roku. Uses POST by default,
+		but may be set to GET. Resonse body (if any)
+		is returned
+		"""
+		# Allow a different IP to be specified (useful for init, for example)
+		if ip is None:
+			ip = self.__ip
+		
+		# Run request
+		conn = http.client.HTTPConnection(ip, port=self.__ROKU_PORT, timeout=1)
+		conn.set_debuglevel(1)
+		conn.request(request_type, url)
+		resp = conn.getresponse()
+		body = resp.read()
+		conn.close()
+
+		return body
+
+	def send_keypress(self, keyname):
 		"""
 		Sends the given command to the Roku. Adds terminating \n if needed
 		"""
-		if cmd[-1] != '\n':
-			cmd = ''.join([cmd, '\n'])
-
-		self.__conn.sendall(cmd.encode())
+		# Send the keypress
+		self.send('/keypress/' + keyname)
 
 	def send_home(self):
-		self.send('press home')
-		self.read_to_prompt()
+		self.send_keypress('home')
 	
 	def send_left(self):
-		self.send('press left')
-		self.read_to_prompt()
+		self.send_keypress('left')
 
 	def send_right(self):
-		self.send('press right')
-		self.read_to_prompt()
+		self.send_keypress('right')
 
 	def send_up(self):
-		self.send('press up')
-		self.read_to_prompt()
+		self.send_keypress('up')
 
 	def send_down(self):
-		self.send('press down')
-		self.read_to_prompt()
+		self.send_keypress('down')
 
 	def send_rwd(self):
-		self.send('press back')
-		self.read_to_prompt()
+		self.send_keypress('back')
 
 	def send_ff(self):
-		self.send('press fwd')
-		self.read_to_prompt()
+		self.send_keypress('fwd')
 
 	def send_pause(self):
-		self.send('press pause')
-		self.read_to_prompt()
+		self.send_keypress('pause')
 
 	def send_select(self):
-		self.send('press select')
-		self.read_to_prompt()
+		self.send_keypress('select')
+
+	def send_search(self, phrase):
+		self.send_keypress('search')
+		print('searching for')
+		for c in phrase:
+			print(c)
+			self.send_keypress('lit_' + c)
+		self.send_keypress('enter')
 
 	def open_bitrate_screen(self):
 		"""
@@ -359,8 +346,15 @@ def main(argv = None):
 	if argv is None:
 		argv = sys.argv
         
+	# Connect
+	try:
+		remote = RokuRemote(sys.argv)
+		print('Connected to', remote.get_model())
+	except socket.timeout as e:
+		print('Connection to Roku timedout, likely not a valid device')
+		quit(1)
+
  	# Run application with the best available UI
-	remote = RokuRemote(sys.argv)
 	if curses_available:
 		ui = RokuRemoteCurses(remote)
 	else:
