@@ -10,7 +10,7 @@ try:
 	import curses
 	import curses.wrapper
 
-	curses_available = True
+	curses_available = False
 except ImportError:
 	curses_available = False
 
@@ -105,7 +105,9 @@ class RokuRemotePlainTerminal(RokuRemoteUI):
 			elif cmd == 'bitrate':
 				self.__remote.open_bitrate_screen()
 			else:
-				print("Unrecognized command")
+				# Send raw command
+				self.__remote.send(cmd)
+				print('Response:', self.__remote.read_to_prompt())
 
 class RokuRemote:
 	"""
@@ -128,13 +130,16 @@ class RokuRemote:
 
 		# Search for Roku if not specified
 		if self.__ip is not None:
-			self.__connect(self.__ip)
+			try:
+				self.__connect(self.__ip)
+			except socket.error as e:
+				print('Unable to connect to Roku at ' +  self.__ip + ':', e)
 		else:
 			self.locate_roku()
 			
 			# Found?
 			if self.__conn is None:
-				print("Unable to locate Roku on local network, please specify IP or host name on the command line")
+				print('Unable to locate Roku on local network, please specify IP or host name on the command line')
 				quit()
 
 	def __connect(self, ip):
@@ -143,33 +148,44 @@ class RokuRemote:
 		it responds like a Roku
 		"""
 		# Connect
-		try:
-			self.__conn = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-			self.__conn.connect((ip, 8080))
-		except socket.error as e:
-			print("Unable to connect to Roku: " + str(e))
-			quit()
+		self.__conn = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+		self.__conn.connect((ip, 8080))	
 			
 		# Read in the Roku ID information
 		self.__roku_id = self.read_line()
 		self.read_to_prompt()
 		
 		return self.__conn
-	
 
 	def locate_roku(self):
 		"""
 		Static function that returns the first IP address of a system on the local network
 		that has port 8080 open
 		"""
-		print('Searching for Roku on local network...')
+		print('Searching for Roku on local network (assuming 192.168.1.0/24)... Trying .   ', end='')
+		sys.stdout.flush()
 		
+		# Don't waste too much time trying to connect
+		socket.setdefaulttimeout(.1)
+
 		self.__conn = None
-		for i in range(254):
-			self.__connect('192.168.1.' + str(i))
-			if self.__conn is None:
-				print('Found a Roku at', self.__ip)
-				return
+		for i in range(1, 254):
+			try:
+				print('\b\b\b' + format(i, '03d'), end='')
+				sys.stdout.flush()
+
+				self.__ip = '192.168.1.' + str(i)
+				self.__connect(self.__ip)
+				
+				if self.__conn is not None:
+					print('\nFound a Roku at', self.__ip)
+					return
+			except socket.error as e:
+				# Well clearly that one didn't work
+				pass
+
+		# Didn't find a Roku, but make sure we bump down to the next line
+		print()
 
 	def disconnect(self):
 		"""
@@ -184,7 +200,11 @@ class RokuRemote:
 		"""
 		Disconnect promperly (if that ever mattered)
 		"""
-		self.disconnect()
+		try:
+			self.disconnect()
+		except socket.error as e:
+			# Ignore, probably we weren't connected anyway
+			pass
 	
 	def read_line(self):
 		"""
