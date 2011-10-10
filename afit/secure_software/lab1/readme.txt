@@ -4,6 +4,8 @@ Author: Lt Ryan Morehart
 Compiling: gcc lab1.c -o lab1
 Running: ./lab1
 
+Correct password: bah
+
 ###############################
 # Sample runs:
 # Successful login:
@@ -25,5 +27,4 @@ Segmentation fault
 ###############################
 # Additional notes:
 Fixing the hole here could be done by adding a width specifier to the scanf.
-Also, I might use strncmp instead, just because I can.
 
