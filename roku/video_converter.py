@@ -5,6 +5,8 @@ import os
 import subprocess
 import tempfile
 import re
+import time
+import shutil
 
 class NotVideoError(Exception):
 	def __init__(self, value):
@@ -25,11 +27,12 @@ def generate_dest_file(src, dest):
 
 	return dest
 		
-def video_is_acceptable(src):
+def determine_action(src):
 	"""
-	Determines if the source is already in a Roku-playable format. Returns
-	True if it is, False otherwise. Throws a NotVideoError if the source
-	is not a (recognized) video file at all
+	Determines if the source is already in a Roku-playable format.
+	Returns the function that should be called based on the results.
+	Throws a NotVideoError if the source is not a (recognized) video
+	file at all
 	"""
 	if not os.path.isfile(src):
 		raise ValueError('Source to check must be a file')
@@ -44,8 +47,19 @@ def video_is_acceptable(src):
 	if m is None:
 		print('not a video')
 		raise NotVideoError('Source is not a video file')
-		
-	print(m.group(1))
+	
+	# Already h.264/mp4?
+	codec = m.group(1)
+	if codec == 'mpeg4' or codec == 'mpeg4 (high)':
+		if src.split('.')[-1] == 'mp4':
+			print('already correct')
+			return move_video
+		else:
+			print('incorrect container')
+			return change_video_container
+	else:
+		print('reencoding needed')
+		return reencode_video
 	
 def move_video(src, dest):
 	"""
@@ -56,18 +70,52 @@ def move_video(src, dest):
 		
 	dest = generate_dest_file(src, dest)
 	print('\tMoving to', dest)
-	#shutil.move(src, dest)
+	shutil.move(src, dest)
+
+def change_video_container(src, dest):
+	"""
+	Changes the video's container without fully reencoding
+	"""
+	if not os.path.isfile(src):
+		raise ValueError('Source must be a file')
 	
-def convert_video(src, dest):
+	STATUS_FIELD_WIDTH = 10
+	
+	print('\tChanging video container format' + ' ' * STATUS_FIELD_WIDTH, end='')
+	
+	# Actually do the change into temp, then move it afterward
+	f, temp_dest = tempfile.mkstemp(suffix='.mp4')
+	os.close(f)
+	p = subprocess.Popen(['ffmpeg', '-i', src, '-y', '-vcodec', 'copy', '-acodec', 'copy', temp_dest], stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+	
+	# "working" indicator
+	wait_period = 0
+	while p.poll() is None:
+		print('\b' * STATUS_FIELD_WIDTH, end='')
+		print('...'.rjust(wait_period + 3).ljust(STATUS_FIELD_WIDTH)[:STATUS_FIELD_WIDTH], end='')
+		sys.stdout.flush()
+		
+		wait_period = (wait_period + 1) % STATUS_FIELD_WIDTH
+		time.sleep(.25)
+	
+	print('\b' * STATUS_FIELD_WIDTH + '... done')
+	
+	if p.returncode == 0:
+		move_video(temp_dest, generate_dest_file(src, dest))
+	else:
+		raise OSError('Possible error in changing container for ' + src)
+	
+def reencode_video(src, dest):
 	if not os.path.isfile(src):
 		raise ValueError('Source to convert must be a file')
 
 	STATUS_FIELD_WIDTH = 25
-		
+	
 	print('\tConverting to temporary file... ' + ' '*STATUS_FIELD_WIDTH, end='')
 	
 	# Actually do the encoding into temp, then move it afterward
-	temp_dest = generate_dest_file(src, tempfile.gettempdir())
+	f, temp_dest = tempfile.mkstemp(suffix='.mp4')
+	os.close(f)
 	p = subprocess.Popen(['HandBrakeCLI', '-f', 'mp4', '-O', '-i', src, '-o', temp_dest], stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
 
 	# Keep a status message up so the user doesn't feel a sense of hopelessness
@@ -90,9 +138,11 @@ def convert_video(src, dest):
 	
 	# All done!
 	print('\b'*STATUS_FIELD_WIDTH, 'done'.ljust(STATUS_FIELD_WIDTH))
-			
+	
 	if p.returncode == 0:
-		move_video(temp_dest, dest)
+		move_video(temp_dest, generate_dest_file(src, dest))
+	else:
+		raise OSError('Possible error in encoding ' + src)
 
 def main(argv=None):
 	# We have the default as None rather than sys.argv
@@ -104,6 +154,7 @@ def main(argv=None):
 	parser = argparse.ArgumentParser(description='Performs conversion of video files to be suitable for Roku')
 	parser.add_argument('--first-only', action='store_true', help='Only convert the first video found in the source folder')
 	parser.add_argument('--remove-source', action='store_true', help='Remove the source file after conversion')
+	parser.add_argument('--no-action', action='store_true', help='Only specify what primary action would be taken for each file, do not perform')
 	parser.add_argument('src', metavar='source', help='What file to convert. If a folder is given, all video files in it are converted.')
 	parser.add_argument('dest', metavar='dest', default='.', nargs='?', help='Where to store converted file. May be a file or directory.')
 	args = parser.parse_args()
@@ -127,30 +178,33 @@ def main(argv=None):
 		src_list = [args.src]
 		
 	# Run through each video file in the folder
-	total_encoded = 0
+	total_src = len(src_list)
 	total_checked = 0
 	for src in src_list:
-		print('Working on {} ({}/{})'.format(src, total_checked + 1, len(src_list)))
+		# Skip directories
+		if os.path.isdir(src):
+			total_src -= 1
+			continue
+	
+		print('Working on {} ({}/~{})'.format(src, total_checked + 1, total_src))
 		total_checked += 1
 	
-		# Is this video already in Roku-acceptable format?
 		try:
-			if not video_is_acceptable(src):
-				convert_video(src, args.dest)
-				
-				# Remove source?
-				if args.remove_source:
+			# Do the fastest possible action to accomplish our goal
+			action = determine_action(src)
+			
+			if not args.no_action:
+				action(src, args.dest)
+					
+				# Remove source? Source may no longer exist if
+				# we merely did a move
+				if args.remove_source and os.path.exists(src):
 					print('\tRemoving source video... ', end='')
 					os.unlink(src)
 					print('done')
 			else:
-				print('Moving video to destination... ', end='')
-				move_video(src, args.dest)
-				print('done')
-				
-			# Keep totals up-to-date
-			total_encoded += 1
-			
+				print('\tWould call:', action.__name__)
+					
 		except NotVideoError:
 			print('\tSkipping file')
 			continue
@@ -159,7 +213,7 @@ def main(argv=None):
 		if args.first_only:
 			break
 
-	print('Complete. Encoded', total_encoded, 'videos')
+	print('Complete. Checked', total_checked, 'videos')
 			
 if __name__ == '__main__':
 	main(sys.argv)
