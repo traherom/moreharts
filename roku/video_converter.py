@@ -42,24 +42,58 @@ def determine_action(src):
 	p = subprocess.Popen(['ffmpeg', '-i', src], stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
 	stdout, stderr = p.communicate()
 	
-	# Pull out the video codec
+	# Video encoding needed?
 	m = re.search(': Video: (.+?),', str(stdout))
-	if m is None:
-		print('not a video')
-		raise NotVideoError('Source is not a video file')
-	
-	# Already h.264/mp4?
-	codec = m.group(1)
-	if codec == 'mpeg4' or codec == 'mpeg4 (high)':
-		if src.split('.')[-1] == 'mp4':
-			print('already correct')
-			return move_video
+	if m is not None:
+		vcodec = m.group(1).lower()
+		if vcodec == 'mpeg4' or vcodec == 'mpeg4 (high)' or vcodec == 'h264' or vcodec == 'h264 (high)':
+			video_ok = True
 		else:
-			print('incorrect container')
-			return change_video_container
+			video_ok = False
 	else:
-		print('reencoding needed')
-		return reencode_video
+		print('unable to determine video codec. Is this not a video?')
+		raise NotVideoError('Source is not a video file')
+
+	# Audio encoding needed?
+	m = re.search(': Audio: (.+?),', str(stdout))
+	if m is not None:
+		acodec = m.group(1).lower()		
+		if acodec == 'aac':
+			audio_ok = True
+		else:
+			audio_ok = False
+	else:
+		print('unable to determine audio codec')
+		raise NotVideoError('Source is not a video file')
+		
+	# Container format ok?
+	ext = src.split('.')[-1].lower()
+	if ext == 'mp4' or ext == 'm4v':
+		container_ok = True
+	else:
+		container_ok = False
+	
+	# Determine the best, fastest action
+	if audio_ok and video_ok and container_ok:
+		# Just need to move it, everything is fine
+		print('correct')
+		return move_video
+	elif audio_ok and video_ok and not container_ok:
+		# Just need to change to an mp4 container
+		print('container is', ext)
+		return change_video_container
+	elif video_ok and not audio_ok:
+		# Need to reencode just the audio
+		print('audio is', acodec)
+		return transcode_audio
+	elif not video_ok and audio_ok:
+		# Need to just take care of the video
+		print('video is', vcodec)
+		return transcode_video
+	else:
+		# Bah. Do it all
+		print('video is', vcodec, 'audio is', acodec)
+		return transcode_both
 	
 def move_video(src, dest):
 	"""
@@ -90,36 +124,94 @@ def change_video_container(src, dest):
 	
 	# "working" indicator
 	wait_period = 0
+	last_line = ''
 	while p.poll() is None:
 		print('\b' * STATUS_FIELD_WIDTH, end='')
 		print('...'.rjust(wait_period + 3).ljust(STATUS_FIELD_WIDTH)[:STATUS_FIELD_WIDTH], end='')
 		sys.stdout.flush()
 		
+		last_line = p.stdout.read(100)
+		
 		wait_period = (wait_period + 1) % STATUS_FIELD_WIDTH
-		time.sleep(.25)
+		time.sleep(.5)
 	
 	print('\b' * STATUS_FIELD_WIDTH + '... done')
 	
 	if p.returncode == 0:
 		move_video(temp_dest, generate_dest_file(src, dest))
 	else:
-		raise OSError('Possible error in changing container for ' + src)
+		raise OSError('Error in changing container: ' + str(last_line)[4:-1])
+
+def transcode_audio(src, dest):
+	"""
+	Changes the video's audio without touching the video. Mainly a
+	massive speed advantage
+	"""
+	if not os.path.isfile(src):
+		raise ValueError('Source must be a file')
 	
-def reencode_video(src, dest):
+	STATUS_FIELD_WIDTH = 10
+	
+	print('\tTrascoding audio' + ' ' * STATUS_FIELD_WIDTH, end='')
+	
+	# Actually do the change into temp, then move it afterward
+	f, temp_dest = tempfile.mkstemp(suffix='.mp4')
+	os.close(f)
+	p = subprocess.Popen(['ffmpeg', '-i', src, '-y', '-vcodec', 'copy', '-acodec', 'aac', '-strict', 'experimental', temp_dest], stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+	
+	# "working" indicator as we run
+	wait_period = 0
+	last_line = ''
+	while p.poll() is None:
+		print('\b' * STATUS_FIELD_WIDTH, end='')
+		print('...'.rjust(wait_period + 3).ljust(STATUS_FIELD_WIDTH)[:STATUS_FIELD_WIDTH], end='')
+		sys.stdout.flush()
+		
+		last_line = p.stdout.read(100)
+		
+		wait_period = (wait_period + 1) % STATUS_FIELD_WIDTH
+		time.sleep(.5)
+	
+	print('\b' * STATUS_FIELD_WIDTH + '... done')
+	
+	if p.returncode == 0:
+		move_video(temp_dest, generate_dest_file(src, dest))
+	else:
+		raise OSError('Error in reencoding audio: ' + str(last_line)[4:-1])
+	
+def transcode_video(src, dest):
+	"""
+	Tells transcoder to just copy the audio track
+	"""
+	transcode(src, dest, False)
+	
+def transcode_both(src, dest):
+	"""
+	Merely calls handbrake to encode both the audio and the video
+	"""
+	transcode(src, dest, True)
+
+def transcode(src, dest, do_audio = True):
 	if not os.path.isfile(src):
 		raise ValueError('Source to convert must be a file')
 
 	STATUS_FIELD_WIDTH = 25
 	
-	print('\tConverting to temporary file... ' + ' '*STATUS_FIELD_WIDTH, end='')
+	if do_audio:
+		audio_encoder = 'aac'
+		print('\tTranscoding audio and video... ' + ' '*STATUS_FIELD_WIDTH, end='')
+	else:
+		audio_encoder = 'copy'
+		print('\tTranscoding video... ' + ' '*STATUS_FIELD_WIDTH, end='')
 	
 	# Actually do the encoding into temp, then move it afterward
 	f, temp_dest = tempfile.mkstemp(suffix='.mp4')
 	os.close(f)
-	p = subprocess.Popen(['HandBrakeCLI', '-f', 'mp4', '-O', '-i', src, '-o', temp_dest], stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+	p = subprocess.Popen(['HandBrakeCLI', '-f', 'mp4', '--decomb', '--encoder', 'x264', '--aencoder', audio_encoder, '-O', '-i', src, '-o', temp_dest], stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
 
 	# Keep a status message up so the user doesn't feel a sense of hopelessness
 	exp = re.compile("^Encoding: task ([0-9]+) of ([0-9]+), ([0-9.]+) %(?: \\(.+ETA ([0-9]{2})h([0-9]{2})m([0-9]{2})s\\))?$")
+	line = ''
 	while p.poll() is None:
 		line = str(p.stdout.read(100))[4:-1]
 		m = exp.search(line)
@@ -142,7 +234,7 @@ def reencode_video(src, dest):
 	if p.returncode == 0:
 		move_video(temp_dest, generate_dest_file(src, dest))
 	else:
-		raise OSError('Possible error in encoding ' + src)
+		raise OSError('Error in encoding. Unable to continue: ' + str(line)[4:-1])
 
 def main(argv=None):
 	# We have the default as None rather than sys.argv
@@ -178,8 +270,12 @@ def main(argv=None):
 		src_list = [args.src]
 		
 	# Run through each video file in the folder
+	# Keep some status info handy
 	total_src = len(src_list)
 	total_checked = 0
+	call_counts = {}
+	start_time = time.time()
+	
 	for src in src_list:
 		# Skip directories
 		if os.path.isdir(src):
@@ -191,20 +287,37 @@ def main(argv=None):
 	
 		try:
 			# Do the fastest possible action to accomplish our goal
+			# Keep track of how many times each action is/would be called
 			action = determine_action(src)
-			
+			if action.__name__ in call_counts:
+				acount, atime = call_counts[action.__name__]
+			else:
+				acount = 1
+				atime = 0
+				
 			if not args.no_action:
-				action(src, args.dest)
+				try:
+					# Call and time action
+					s = time.time()
+					action(src, args.dest)
+					atime += time.time() - s
 					
-				# Remove source? Source may no longer exist if
-				# we merely did a move
-				if args.remove_source and os.path.exists(src):
-					print('\tRemoving source video... ', end='')
-					os.unlink(src)
-					print('done')
+					# Remove source? Source may no longer exist if
+					# we merely did a move
+					if args.remove_source and os.path.exists(src):
+						print('\tRemoving source video... ', end='')
+						os.unlink(src)
+						print('done')
+				except OSError as e:
+					print('\tAction failed: ' + str(e))
+					print('\tSkipping to next file')
+					continue
 			else:
 				print('\tWould call:', action.__name__)
-					
+			
+			# Save usage info
+			call_counts[action.__name__] = (acount, atime)
+			
 		except NotVideoError:
 			print('\tSkipping file')
 			continue
@@ -213,8 +326,12 @@ def main(argv=None):
 		if args.first_only:
 			break
 
-	print('Complete. Checked', total_checked, 'videos')
-			
+	# How much work did we do?
+	end_time = time.time()
+	print('Complete. Usage:')
+	for action, utilization in call_counts.items():
+		print(action, ':', utilization[0], 'times,', utilization[1], 'seconds')
+	print('Total:', total_checked, 'checked,', end_time - start_time, 'seconds')
+	
 if __name__ == '__main__':
 	main(sys.argv)
-
