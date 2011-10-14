@@ -9,7 +9,7 @@ from urllib.parse import quote
 from lxml import etree
 
 class FakeMyMedia:
-	def __init__(self, media_root, port=8001):
+	def __init__(self, media_root, ip, port=8001):
 		"""
 		Register ourselves with the MyMedia rendevous server
 		"""
@@ -17,8 +17,8 @@ class FakeMyMedia:
 			raise ValueError('Media root must be a directory')
 		
 		self.__media_root = os.path.abspath(media_root)
-		self.__ip = '192.168.1.50'
-		self.__port = port
+		self.__ip = ip
+		self.__port = str(port)
 		
 		conn = http.client.HTTPConnection('rokumm.appstop.com', timeout=5)
 		conn.request('POST', '/register', 'code=ttan&type=server&server=http://{}%3A{}'.format(self.__ip, self.__port))
@@ -28,7 +28,11 @@ class FakeMyMedia:
 		
 		if resp.status != 302:
 			print('Error registering with rendezvous server:', resp.status)
-			
+	
+	@cherrypy.expose
+	def index(self):
+		raise cherrypy.HTTPRedirect('/feed')
+	
 	@cherrypy.expose
 	def feed(self, key=None, dir=None):
 		"""
@@ -76,7 +80,7 @@ class FakeMyMedia:
 				elif os.path.basename(f)[-3:] == 'mp4':
 					etree.SubElement(item, 'title').text = f[:-4]
 					link = etree.SubElement(item, 'link')
-					link.text = 'http://{}/video/{}'.format('media.moreharts.com', quote(f))
+					link.text = 'http://{}/video/{}'.format(self.__ip, quote(f))
 					etree.SubElement(item, 'filetype').text = 'mp4'
 					etree.SubElement(item, 'ContentType').text = 'movie'
 					etree.SubElement(item, 'StreamFormat').text = 'mp4'
@@ -100,6 +104,16 @@ class FakeMyMedia:
 			args=args,
 			kw=kw))
 
+# WSGI compatibility
+def application(environ, start_response):
+	"""
+	Run as WSGI application
+	"""
+    cherrypy.config.update(environ['configuration'])
+    cherrypy.tree.mount(FakeMyMedia('/var/samba/media/', environ['SERVER_NAME'], environ['SERVER_PORT']), script_name=environ['SCRIPT_NAME'], config=environ['configuration'])
+    return cherrypy.tree(environ, start_response)
+
+# Callable from command line
 def main(argv=None):
 	"""
 	Run cherrypy when called on the command line
@@ -111,4 +125,3 @@ def main(argv=None):
 
 if __name__ == '__main__':
 	main(sys.argv)
-	
