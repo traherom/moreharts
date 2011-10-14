@@ -18,7 +18,7 @@ try:
 	import curses
 	import curses.wrapper
 
-	curses_available = False
+	curses_available = True
 except ImportError:
 	curses_available = False
 
@@ -56,7 +56,7 @@ class RokuRemoteCurses(RokuRemoteUI):
 		mid_row = max_row / 2
 		mid_col = max_col / 2
 		
-		ui =	(('Connected to ' + self.__remote.get_roku_id()),
+		ui =	(('Connected to ' + self.__remote.get_model()),
 				(()),
 				(('Up')),
 				(('Left', 'OK', 'Right')),
@@ -77,74 +77,61 @@ class RokuRemoteCurses(RokuRemoteUI):
 class RokuRemotePlainTerminal(RokuRemoteUI):
 	"""
 	Terminal-based UI
-	"""
+	"""	
 	def __init__(self, remote):
 		"""
 		Save off the given remote
 		"""
 		self.__remote = remote
 
+		# And grab its functions
+		self.__commands = {
+			'l' : self.__remote.send_left,
+			'r' : self.__remote.send_right,
+			'u' : self.__remote.send_up,
+			'd' : self.__remote.send_down,
+			'ff' : self.__remote.send_ff,
+			'rwd' : self.__remote.send_rwd,
+			'h' : self.__remote.send_home,
+			#'i' : self.__remote.send_info,
+			'p' : self.__remote.send_pause,
+			'search' : self.__search,
+			'secret' : self.__remote.open_secret_screen,
+			'bitrate' : self.__remote.open_bitrate_screen
+			}
+			
 	def start(self):
 		"""
 		Show prompt, accept single-letter commands
 		"""
 		while True:
 			cmd = input('> ')
-			if cmd == 'l':
-				self.__remote.send_left()
-			elif cmd == 'r':
-				self.__remote.send_right()
-			elif cmd == 'u':
-				self.__remote.send_up()
-			elif cmd == 'd':
-				self.__remote.send_down()
-			elif cmd == 'ff':
-				self.__remote.send_ff()
-			elif cmd == 'rwd':
-				self.__remote.send_rwd()
-			elif cmd == 'h':
-				self.__remote.send_home()
-			elif cmd == 'i':
-				self.__remote.send_info()
-			elif cmd == 'p':
-				self.__remote.send_pause()
-			elif cmd == 'search':
-				phrase = input('Search for: ')
-				self.__remote.send_search(phrase)
-			elif cmd == 'secret':
-				self.__remote.open_secret_screen()
-			elif cmd == 'bitrate':
-				self.__remote.open_bitrate_screen()
-			else:
-				# Send raw command
-				self.__remote.send(cmd)
-				print('Response:', self.__remote.read_to_prompt())
+			self.__commands[cmd]()
 
+	def __search(self):
+		"""
+		Gets the phrase from the user to search for before sending command
+		"""
+		phrase = input('Search for: ')
+		self.__remote.send_search(phrase)
+				
 class RokuRemote:
 	"""
 	Ties together the UI and connection to the Roku
 	"""
 	__ROKU_PORT = 8060
 
-	def __init__(self, argv):
+	def __init__(self, ip):
 		"""
 		Creates the remote GUI and connection, unless the user specified just a few commands
 		to run on the command line
 		"""
-		# Parse command line
-		parser = argparse.ArgumentParser(description='Remote for the Roku media player')
-		parser.add_argument('ip', metavar='IP Address', nargs='*')
-		res = parser.parse_args(argv[1:])
-
-		if len(res.ip) != 0:
-			self.__ip = res.ip[0]
-		else:
-			self.__ip = None
-
+		self.__ip = ip
+		
 		# IP given?
 		if self.__ip is not None:
 			# Ensure it's valid and connect
-			model = self.__get_roku_info()
+			model = self.__get_roku_info(self.__ip)
 
 			if model is not None:
 				self.__roku_model = model
@@ -157,22 +144,24 @@ class RokuRemote:
 				print('Unable to locate Roku on local network, please specify IP or host name on the command line')
 				quit()
 
-	def __get_roku_info(self):
+	@staticmethod
+	def __get_roku_info(ip):
 		"""
 		Retrieves the player information from the Roku. Returns None if it is
 		not a valid Roku device
 		"""
-		home_page = self.send('/', request_type='GET')
+		home_page = RokuRemote.__send_to_ip(ip, '/', request_type='GET')
 
 		# Should be an XML file
 		tree = etree.fromstring(home_page)
-		m = self.__find_in_response(tree, '/a:root/a:device/a:modelName')
+		m = RokuRemote.__find_in_response(tree, '/a:root/a:device/a:modelName')
 		if len(m) == 1:
 			return m[0].text
 		else:
 			return None
 
-	def __find_in_response(self, tree, xpath):
+	@staticmethod
+	def __find_in_response(tree, xpath):
 		"""
 		Finds the element at the given path from the given element.
 		Useful as it defines the stupid namespaces that roku uses
@@ -181,7 +170,8 @@ class RokuRemote:
 			'a' : 'urn:schemas-upnp-org:device-1-0'
 			})
 
-	def locate_roku(self):
+	@staticmethod
+	def locate_roku():
 		"""
 		Static function that returns the first IP address of a system on the local network
 		that has port 8080 open
@@ -196,20 +186,19 @@ class RokuRemote:
 				sys.stdout.flush()
 
 				# Attempt to connect and query
-				self.__ip = '192.168.1.' + str(i)
-				self.__roku_model = self.__get_roku_info()
+				ip = '192.168.1.' + str(i)
+				roku_model = RokuRemote.__get_roku_info(ip)
 
 				# Work?
-				if self.__roku_model is not None:
-					print('\nFound a Roku at', self.__ip)
-					return True
+				if roku_model is not None:
+					return ip
 			except socket.error as e:
 				# Well clearly that one didn't work
 				pass
 
 		# Didn't find a Roku, but make sure we bump down to the next line
 		print()
-		return False
+		return None
 
 	def disconnect(self):
 		"""
@@ -239,6 +228,20 @@ class RokuRemote:
 		"""
 		return self.__ip
 
+	@staticmethod
+	def __send_to_ip(ip, url, request_type='POST'):
+		"""
+		"""
+		# Run request
+		conn = http.client.HTTPConnection(ip, port=RokuRemote.__ROKU_PORT, timeout=.25)
+		conn.set_debuglevel(1)
+		conn.request(request_type, url)
+		resp = conn.getresponse()
+		body = resp.read()
+		conn.close()
+
+		return body
+		
 	def send(self, url, request_type='POST', ip=None):
 		"""
 		Sends the given URL request to the Roku. Uses POST by default,
@@ -248,16 +251,8 @@ class RokuRemote:
 		# Allow a different IP to be specified (useful for init, for example)
 		if ip is None:
 			ip = self.__ip
-		
-		# Run request
-		conn = http.client.HTTPConnection(ip, port=self.__ROKU_PORT, timeout=1)
-		conn.set_debuglevel(1)
-		conn.request(request_type, url)
-		resp = conn.getresponse()
-		body = resp.read()
-		conn.close()
-
-		return body
+			
+		RokuRemote.__send_to_ip(ip, url, request_type)
 
 	def send_keypress(self, keyname):
 		"""
@@ -345,17 +340,30 @@ def main(argv = None):
  	# just in case sys.argv were changed after startup
 	if argv is None:
 		argv = sys.argv
-        
+       
+	# Parse command line
+	parser = argparse.ArgumentParser(description='Remote for the Roku media player')
+	parser.add_argument('--use-curses', action='store_true', help='If available, use curses-based interface')
+	parser.add_argument('ip', metavar='IP Address', default=None, nargs='?', help='IP address of the Roku to connect to')
+	res = parser.parse_args(argv[1:])
+	
+	# IP given?
+	if res.ip is None:
+		# Need to find it
+		ip = RokuRemote.locate_roku()
+	else:
+		ip = res.ip
+	
 	# Connect
 	try:
-		remote = RokuRemote(sys.argv)
+		remote = RokuRemote(ip)
 		print('Connected to', remote.get_model())
 	except socket.timeout as e:
 		print('Connection to Roku timedout, likely not a valid device')
 		quit(1)
 
  	# Run application with the best available UI
-	if curses_available:
+	if res.use_curses and curses_available:
 		ui = RokuRemoteCurses(remote)
 	else:
 		ui = RokuRemotePlainTerminal(remote)
