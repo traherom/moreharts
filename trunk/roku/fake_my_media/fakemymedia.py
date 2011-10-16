@@ -11,7 +11,7 @@ from lxml import etree
 class FakeMyMedia:
 	def __init__(self, media_root, ip, port=8001):
 		"""
-		Register ourselves with the MyMedia rendevous server
+		Setup fake server
 		"""
 		if not os.path.isdir(media_root):
 			raise ValueError('Media root must be a directory')
@@ -20,11 +20,16 @@ class FakeMyMedia:
 		self.__ip = ip
 		self.__port = str(port)
 		
-		conn = http.client.HTTPConnection('rokumm.appstop.com', timeout=5)
-		conn.request('POST', '/register', 'code=ttan&type=server&server=http://{}%3A{}'.format(self.__ip, self.__port))
+		# Register with the rendevous server
+		conn = http.client.HTTPConnection('rokumm.appspot.com', timeout=5)
+		conn.set_debuglevel(0)
+		conn.request('POST', '/register',
+			'code=ttan&type=server&server=http://{}%3A{}'.format(self.__ip, self.__port),
+			headers={'Content-Type' : 'application/x-www-form-urlencoded'})
 		resp = conn.getresponse()
 		body = resp.read()
 		conn.close()
+		print('body', body, 'code=ttan&type=server&server=http://{}%3A{}'.format(self.__ip, self.__port))
 		
 		if resp.status != 302:
 			print('Error registering with rendezvous server:', resp.status)
@@ -47,7 +52,7 @@ class FakeMyMedia:
 			# Only list videos folder
 			item = etree.SubElement(channel, 'item')
 			etree.SubElement(item, 'title').text = 'My Videos'
-			etree.SubElement(item, 'image').text = 'http://{}:{}/images/video_square.jpg'.format(self.__ip, self.__port)
+			etree.SubElement(item, 'image').text = 'http://{}:{}/images/videos_square.jpg'.format(self.__ip, self.__port)
 			etree.SubElement(item, 'link').text = 'http://{}:{}/feed?key={}&dir={}'.format(self.__ip, self.__port, 'video', '.')
 		elif key == 'video':
 			channel = etree.SubElement(root, 'channel')
@@ -109,9 +114,9 @@ def application(environ, start_response):
 	"""
 	Run as WSGI application
 	"""
-    cherrypy.config.update(environ['configuration'])
-    cherrypy.tree.mount(FakeMyMedia('/var/samba/media/', environ['SERVER_NAME'], environ['SERVER_PORT']), script_name=environ['SCRIPT_NAME'], config=environ['configuration'])
-    return cherrypy.tree(environ, start_response)
+	cherrypy.config.update(environ['configuration'])
+	cherrypy.tree.mount(FakeMyMedia('/var/samba/media/', environ['SERVER_NAME'], environ['SERVER_PORT']), script_name=environ['SCRIPT_NAME'], config=environ['configuration'])
+	return cherrypy.tree(environ, start_response)
 
 # Callable from command line
 def main(argv=None):
@@ -119,7 +124,7 @@ def main(argv=None):
 	Run cherrypy when called on the command line
 	"""
 	cherrypy.config.update('prod.conf')
-	cherrypy.tree.mount(FakeMyMedia('/var/samba/media/', cherrypy.config['server.socket_port']), '/', 'prod.conf')
+	cherrypy.tree.mount(FakeMyMedia('/var/samba/media/', '192.168.1.50', cherrypy.config['server.socket_port']), '/', 'prod.conf')
 	cherrypy.engine.start()
 	cherrypy.engine.block()
 

@@ -90,9 +90,11 @@ class RokuRemotePlainTerminal(RokuRemoteUI):
 			'r' : self.__remote.send_right,
 			'u' : self.__remote.send_up,
 			'd' : self.__remote.send_down,
+			's' : self.__remote.send_select,
 			'ff' : self.__remote.send_ff,
 			'rwd' : self.__remote.send_rwd,
 			'h' : self.__remote.send_home,
+			'b' : self.__remote.send_back,
 			#'i' : self.__remote.send_info,
 			'p' : self.__remote.send_pause,
 			'search' : self.__search,
@@ -105,8 +107,14 @@ class RokuRemotePlainTerminal(RokuRemoteUI):
 		Show prompt, accept single-letter commands
 		"""
 		while True:
-			cmd = input('> ')
-			self.__commands[cmd]()
+			try:
+				cmd = input('> ')
+				self.__commands[cmd]()
+			except KeyError as e:
+				print(cmd, 'is not a recognized command')
+			except KeyboardInterrupt as e:
+				print('Exiting')
+				return
 
 	def __search(self):
 		"""
@@ -234,7 +242,7 @@ class RokuRemote:
 		"""
 		# Run request
 		conn = http.client.HTTPConnection(ip, port=RokuRemote.__ROKU_PORT, timeout=.25)
-		conn.set_debuglevel(1)
+		#conn.set_debuglevel(1)
 		conn.request(request_type, url)
 		resp = conn.getresponse()
 		body = resp.read()
@@ -276,8 +284,11 @@ class RokuRemote:
 	def send_down(self):
 		self.send_keypress('down')
 
-	def send_rwd(self):
+	def send_back(self):
 		self.send_keypress('back')
+
+	def send_rwd(self):
+		self.send_keypress('rwd')
 
 	def send_ff(self):
 		self.send_keypress('fwd')
