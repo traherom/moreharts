@@ -23,7 +23,7 @@ def generate_dest_file(src, dest):
 	
 	if os.path.isdir(dest):
 		src_name = os.path.basename(src)
-		dest += '/' + '.'.join(src_name.split('.')[:-1]) + '.mp4'
+		dest = os.path.join(dest, '.'.join(src_name.split('.')[:-1]) + '.mp4')
 
 	return dest
 		
@@ -35,7 +35,7 @@ def determine_action(src):
 	file at all
 	"""
 	if not os.path.isfile(src):
-		raise ValueError('Source to check must be a file')
+		raise ValueError('Source to check must be a file.')
 	
 	# Use ffmpeg to check codec
 	print('\tChecking format... ', end='')
@@ -43,12 +43,15 @@ def determine_action(src):
 	stdout, stderr = p.communicate()
 	
 	# Video encoding needed?
+	valid_codecs = ['mpeg4', 'mpeg4 (high)', 'mpeg4 (main)', 'h264', 'h264 (high)', 'h264 (main)']
 	m = re.search(': Video: (.+?),', str(stdout))
 	if m is not None:
 		vcodec = m.group(1).lower()
-		if vcodec == 'mpeg4' or vcodec == 'mpeg4 (high)' or vcodec == 'h264' or vcodec == 'h264 (high)':
+		try:
+			# Find in list. Throws exception if it's not there
+			valid_codecs.index(vcodec)
 			video_ok = True
-		else:
+		except ValueError as e:
 			video_ok = False
 	else:
 		print('unable to determine video codec. Is this not a video?')
@@ -246,6 +249,7 @@ def main(argv=None):
 	parser = argparse.ArgumentParser(description='Performs conversion of video files to be suitable for Roku')
 	parser.add_argument('--first-only', action='store_true', help='Only convert the first video found in the source folder')
 	parser.add_argument('--remove-source', action='store_true', help='Remove the source file after conversion')
+	parser.add_argument('--remove-failed', action='store_true', help='Remove the source file file if conversion fails. Cannot be undone!')
 	parser.add_argument('--no-action', action='store_true', help='Only specify what primary action would be taken for each file, do not perform')
 	parser.add_argument('src', metavar='source', help='What file to convert. If a folder is given, all video files in it are converted.')
 	parser.add_argument('dest', metavar='dest', default='.', nargs='?', help='Where to store converted file. May be a file or directory.')
@@ -264,7 +268,7 @@ def main(argv=None):
 			exit()
 		
 		# Work with all files in directory
-		src_list = os.listdir(args.src)
+		src_list = [os.path.join(args.src, f) for f in os.listdir(args.src)]
 	else:
 		# Work with a single file
 		src_list = [args.src]
@@ -310,6 +314,13 @@ def main(argv=None):
 						print('done')
 				except OSError as e:
 					print('\tAction failed: ' + str(e))
+
+					# Remove, we'll never successfully convert it.
+					if args.remove_failed and os.path.exists(src):
+						print('\tRemoving bad source video... ', end='')
+						os.unlink(src)
+						print('done')
+
 					print('\tSkipping to next file')
 					continue
 			else:
@@ -330,8 +341,8 @@ def main(argv=None):
 	end_time = time.time()
 	print('Complete. Usage:')
 	for action, utilization in call_counts.items():
-		print(action, ':', utilization[0], 'times,', utilization[1], 'seconds')
-	print('Total:', total_checked, 'checked,', end_time - start_time, 'seconds')
+		print(action, ':', utilization[0], 'times,', round(utilization[1], 3), 'seconds')
+	print('Total:', total_checked, 'checked,', round(end_time - start_time, 3), 'seconds')
 	
 if __name__ == '__main__':
 	main(sys.argv)
