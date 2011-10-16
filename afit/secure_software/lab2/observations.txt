@@ -1,0 +1,35 @@
+Task 1:
+	In Ubuntu 11.10, ProPolice is enabled by default. As a result,
+	the overflow is detected, resulting in a nice stacktrace and
+	memory dump.
+		traherom@vmramlap:~/src/afit/secure_software/lab1$ ./a.out 
+		Password (up to 30 chars): aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+		DENIED!
+		*** stack smashing detected ***: ./a.out terminated
+		======= Backtrace: =========
+		...
+		======= Memory map: ========
+		...
+
+	If that's disabled (-fno-stack-protector), we end up with a plain
+	old "Segmentation Fault!" error.
+
+Task 2:
+	Code
+	
+Task 3:
+	%s - Segmentation fault (read out of program space?)
+	%d - Nice little number
+	%x - 1
+	
+Task 4:
+	
+	
+Task 5:
+	The integer overflow causes a new root user to be created, not the normal user that was
+	probably meant to occur.
+		traherom@vmramlap:~/src/afit/secure_software/lab2$ ./t5
+		Last user was ID 4294967295
+		New user has ID 0
+		New user created with root privileges
+
