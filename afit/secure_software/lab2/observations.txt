@@ -1,3 +1,7 @@
+#############
+Building: make
+
+#############
 Task 1:
 	In Ubuntu 11.10, ProPolice is enabled by default. As a result,
 	the overflow is detected, resulting in a nice stacktrace and
@@ -15,16 +19,65 @@ Task 1:
 	old "Segmentation Fault!" error.
 
 Task 2:
-	Code
+	Code. Sample output:
+		traherom@vmramlap:~/src/afit/secure_software/lab2$ ./task2and3 
+		Password: aoeu
+		You entered aoeu
+		Denied
+		
+		traherom@vmramlap:~/src/afit/secure_software/lab2$ ./task2and3 
+		Password: bah
+		You entered bah
+		Welcome
+		
+		traherom@vmramlap:~/src/afit/secure_software/lab2$ ./task2and3 
+		Password: 12345678901234567890
+		You entered 12345678901234567890
+		Denied
+		
+		traherom@vmramlap:~/src/afit/secure_software/lab2$ ./task2and3 
+		Password: 12345678901234567890123456
+		The password must be 20 or fewer characters
+		Password: 12345
+		You entered 12345
+		Denied
+
 	
 Task 3:
-	%s - Segmentation fault (read out of program space?)
-	%d - Nice little number
-	%x - 1
+	Output:
+		traherom@vmramlap:~/src/afit/secure_software/lab2$ ./task2and3
+		Password: %8x%8x%8x%8x%8x
+		You entered        1 8049ff4 80486b1 8048490       0
+		Denied
+		traherom@vmramlap:~/src/afit/secure_software/lab2$ ./task2and3
+		Password: %s%s%s%s
+		Segmentation fault
+		traherom@vmramlap:~/src/afit/secure_software/lab2$ ./task2and3
+		Password: %d
+		You entered 1
+		Denied
 	
 Task 4:
-	
-	
+	Code. Sample output for various inputs:
+		traherom@vmramlap:~/src/afit/secure_software/lab2$ ./task4
+		Password: %s
+		The password must be only alphanumeric and <= 20 characters long
+		Password: 123
+		You entered 123
+		Denied
+		traherom@vmramlap:~/src/afit/secure_software/lab2$ ./task4
+		Password: aoeuoaeu234
+		You entered aoeuoaeu234
+		Denied
+		traherom@vmramlap:~/src/afit/secure_software/lab2$ ./task4
+		Password: aoeu$aochr
+		The password must be only alphanumeric and <= 20 characters long
+		Password: ao.
+		The password must be only alphanumeric and <= 20 characters long
+		Password: a
+		You entered a
+		Denied
+
 Task 5:
 	The integer overflow causes a new root user to be created, not the normal user that was
 	probably meant to occur.
@@ -32,4 +85,10 @@ Task 5:
 		Last user was ID 4294967295
 		New user has ID 0
 		New user created with root privileges
+
+Task 6:
+	Code. Overflow is now blocked:
+		traherom@vmramlap:~/src/afit/secure_software/lab2$ ./task6
+		Last user was ID 4294967295
+		Maximum number of users exceeded, unable to create new user
 

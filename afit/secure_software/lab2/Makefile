@@ -1,8 +1,11 @@
-all : task2and3 task4 task5 task6
+all : task1 task2and3 task4 task5 task6
 
 clean : 
 	rm *.o
-	rm task2and3 task4 task5 task6
+	rm task1 task2and3 task4 task5 task6
+
+task1 : task1.o
+	gcc -o task1 task1.o
 
 task2and3 : task2and3.o
 	gcc -o task2and3 task2and3.o
@@ -16,7 +19,10 @@ task5 : task5.o
 task6 : task6.o
 	gcc -o task6 task6.o
 
-task3and3.o : task2and3.c
+task1.o : task1.c
+	gcc -fno-stack-protector -c task1.c
+
+task2and3.o : task2and3.c
 	gcc -c task2and3.c
 	
 task4.o : task4.c
@@ -27,3 +33,4 @@ task5.o : task5.c
 
 task6.o : task6.c
 	gcc -c task6.c
+	
