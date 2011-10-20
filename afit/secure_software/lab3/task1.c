@@ -1,3 +1,9 @@
+/********
+* HW: Secure Sofware Lab 3, task 1
+* Author: Ryan Morehart
+* 
+* Displays all alphabetic characters in a file
+********/
 #include <stdio.h>
 #include <ctype.h>
 
@@ -47,8 +53,8 @@ int main(int argc, char **argv)
 			printf("%c", c);
 		}
 		
-		// "Binary?" IE, is it some sort of control, non-texty character?
-		if(c != EOF && c <= 8 || (c >= 14 && c <= 31) || (c >= 127))
+		// "Binary?" Is it some sort of control, non-texty character?
+		if(c != EOF && (c <= 8 || (c >= 14 && c <= 31) || (c >= 127)))
 			isBinary = 1;
 		
 		// Next!

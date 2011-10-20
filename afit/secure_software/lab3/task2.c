@@ -1,3 +1,9 @@
+/********
+* HW: Secure Sofware Lab 3, task 2
+* Given in assignment
+* 
+* Vulnerable to command injection
+********/
 #include <stdio.h>
 #include <unistd.h>
 #include <stdlib.h>
