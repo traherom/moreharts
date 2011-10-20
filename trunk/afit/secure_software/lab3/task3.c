@@ -1,3 +1,9 @@
+/********
+* HW: Secure Sofware Lab 3, task 1
+* Author: Ryan Morehart
+* 
+* cats the given file name, not vulnerable to command injection
+********/
 #include <stdio.h>
 #include <unistd.h>
 #include <stdlib.h>
@@ -21,23 +27,14 @@ char isFileNameValid(char *name)
 		currChar++;
 	}
 	
+	// Didn't hit a bad one
 	return 1;
-}
-
-// Shamelessly taken from
-// http://cboard.cprogramming.com/c-programming/67891-flush-input-buffer.html#post482360
-void fflushstdin( void )
-{
-    int c;
-    while( (c = fgetc( stdin )) != EOF && c != '\n' );
 }
 
 int main(int argc, char **argv)
 {
 	char cat[] = "cat";
-	char *command = 0;
 	char *currFileName = 0;
-	size_t commandLength;
 	int fileNameLength = 0;
 	char doneAllocation = 0;
 	
@@ -63,7 +60,6 @@ int main(int argc, char **argv)
 		
 		// Get new input
 		fgets(currFileName, MAX_DYN_NAME_LEN, stdin);
-		//fflushstdin();
 		
 		// Drop the newline from fgets
 		fileNameLength = strlen(currFileName);
