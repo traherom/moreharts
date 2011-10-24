@@ -8,8 +8,8 @@ clean :
 
 vulp : vulp.o
 	gcc -o vulp vulp.o
-	chmod u+s vulp
 	sudo chown root vulp
+	sudo chmod u+s vulp
 	
 vulp.o : vulp.c
 	gcc -Wall -g -c vulp.c

@@ -3,32 +3,38 @@
 #include <unistd.h>
 #include <string.h>
 
-#define DELAY 2
+#define DELAY 3
 
 int main()
 {
-	char * fn = "/tmp/XYZ";
+	char * fn = "XYZ";
 	char buffer[60];
 	FILE *fp;
-	long int  i;
 
 	/* get user input */
 	scanf("%50s", buffer );
-	printf("Going to write: %s\n", buffer);
+	printf("VULP: Going to write: %s\n", buffer);
 
 	if(!access(fn, W_OK)){
 		/* simulating delay */
 		sleep(DELAY);
 
-		printf("Opening file...\n");
+		printf("VULP: Opening file...\n");
 		fp = fopen(fn, "a+");
-		printf("Writing...\n");
+		if(fp == NULL)
+		{
+			perror("VULP");
+			printf("VULP: File not opened\n");
+			return 1;
+		}
+		
+		printf("VULP: Writing...\n");
 		fwrite("\n", sizeof(char), 1, fp);
 		fwrite(buffer, sizeof(char), strlen(buffer), fp);
-		printf("Closing...\n");
+		printf("VULP: Closing...\n");
 		fclose(fp);
 	}
-	else printf("No permission \n");
+	else printf("VULP: No permission \n");
 
 	return 0;
 }
