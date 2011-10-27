@@ -32,7 +32,12 @@ Task 1
 	to a file to add a new user to /etc/passwd and /etc/shadow; modify config
 	files (often later settings override earlier ones, so security might be
 	relaxed for remotely-accessible services); or make a backdoor (IE, netcat)
-	run from script that will run as a root, such as an init script.
+	run from script that will run as a root, such as an init script or cronjob.
 	
 Task 2
+	vulp-modified.c contains one example change. Immediately after opening the
+	file we re-check the access on it. If an attacker wanted to execute the same
+	attack, they would need to swap out the file for a link during the first delay,
+	then swap it back as soon as fopen() completes. Nailing both race conditions
+	would be very difficult.
 	

@@ -11,6 +11,8 @@ int main()
 	char buffer[60];
 	FILE *fp;
 
+	printf("VULP: Modified version\n");
+
 	/* get user input */
 	scanf("%50s", buffer );
 	printf("VULP: Going to write: %s\n", buffer);
@@ -19,8 +21,20 @@ int main()
 		/* simulating delay */
 		sleep(DELAY); // CHANGE FROM LOOP DELAY
 
+		/* open */
 		printf("VULP: Opening file...\n");
 		fp = fopen(fn, "a+");
+		
+		// Check access again, just to make sure it's still good
+		if(access(fn, W_OK))
+		{
+			printf("VULP: Permissions lost\n");
+			fclose(fp);
+			return 1;
+		}
+		
+		// Ensure file really opened. We do this after the access()
+		// check to minimize the number of statements between the two
 		if(fp == NULL)
 		{
 			perror("VULP");
@@ -34,7 +48,11 @@ int main()
 		printf("VULP: Closing...\n");
 		fclose(fp);
 	}
-	else printf("VULP: No permission \n");
+	else
+	{
+		printf("VULP: No permission \n");
+		return 1;
+	}
 
 	return 0;
 }
