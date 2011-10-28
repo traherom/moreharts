@@ -1,0 +1,48 @@
+\documentclass{article}
+\usepackage{amssymb,amsmath}
+\usepackage[landscape]{geometry}
+\usepackage{amsmath}
+\begin{document}
+\begin{tabular}{| r l l |}
+\hline
+\multicolumn{3}{| c |}{Basic Links}\\
+\hline
+$L$ &  & Packet size (bits)\\
+$R$ &  & Rate of transmission (bits/sec)\\
+$m$ &  & Distance of line\\
+$s$ &  & Line speed (meter/sec)\\
+$D_{trans}$ & $L/R$ & Transmission delay (s)\\
+$D_{prop}$ & $m/s$ & Propogation delay (s)\\
+$RTT$ & $2*D_{prop}$ & Round Trip Time (s)\\
+B-D product & $R*D_{prop}$ & No ACKs (b)\\
+              & $R*RTT$ & With ACKs (b)\\
+$U$ & $\displaystyle \frac{L/R}{RTT+L/R}$ & Utilization per packet (percentage)\\
+\hline
+\end{tabular}\\
+
+\begin{tabular}{| r l l |}
+\hline
+\multicolumn{3}{| c |}{TCP}\\
+\hline
+$SampleRTT$ & & Point sample of a RTT on a TCP connection\\
+$EstimatedRTT$ & $.875 * EstimatedRTT + .125 * SampleRTT$ & Estimated RTT\\
+$DevRTT$ & $(1 - a)DevRTT + \beta|SampleRTT - EstimatedRTT|$ & Deviation in RTT\\
+$TimeoutInterval$ & $EstimatedRTT + 4DevRTT$ & Connection timeout\\
+ACK rule & \multicolumn{2}{l |}{Delay transmission of ACK 500msec if there is no segment already awaiting acknowledgement}\\
+\hline
+\end{tabular}
+
+\begin{tabular}{| r l |}
+\hline
+\multicolumn{2}{| c |}{P2P}\\
+\hline
+Napster & Centralized database, P2P file transfers\\
+Gnutella & Distributed database, query flooding with <10 neighbors\\
+KaZaA & Group leaders w/ database of assigned peers' data\\
+      & Added upload limits, request queuing, incentive priorities, parallel downloading\\
+BitTorrent & Grab small pieces (32Kb-4096Kb) of file from many peers at once\\
+           & Avoids freeloading by only sending to people sharing well\\
+\hline
+\end{tabular}
+
+\end{document}
