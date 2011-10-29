@@ -1,48 +1,95 @@
 \documentclass{article}
 \usepackage{amssymb,amsmath}
-\usepackage[landscape]{geometry}
+\usepackage[landscape,margin=0.2in]{geometry}
 \usepackage{amsmath}
+\usepackage{multirow}
+\usepackage{rotating}
 \begin{document}
 \begin{tabular}{| r l l |}
 \hline
-\multicolumn{3}{| c |}{Basic Links}\\
+	\multicolumn{3}{| c |}{\textbf{Basic Links}}\\
 \hline
-$L$ &  & Packet size (bits)\\
-$R$ &  & Rate of transmission (bits/sec)\\
-$m$ &  & Distance of line\\
-$s$ &  & Line speed (meter/sec)\\
-$D_{trans}$ & $L/R$ & Transmission delay (s)\\
-$D_{prop}$ & $m/s$ & Propogation delay (s)\\
-$RTT$ & $2*D_{prop}$ & Round Trip Time (s)\\
-B-D product & $R*D_{prop}$ & No ACKs (b)\\
-              & $R*RTT$ & With ACKs (b)\\
-$U$ & $\displaystyle \frac{L/R}{RTT+L/R}$ & Utilization per packet (percentage)\\
+	$L$ &  & Packet size (bits)\\
+	$R$ &  & Rate of transmission (bits/sec)\\
+	$m$ &  & Distance of line\\
+	$s$ &  & Line speed (meter/sec)\\
+	$D_{trans}$ & $L/R$ & Transmission delay (s)\\
+	$D_{prop}$ & $m/s$ & Propogation delay (s)\\
+	$RTT$ & $2*D_{prop}$ & Round Trip Time (s)\\
+	B-D product & $R*D_{prop}$ & No ACKs (b)\\
+		      & $R*RTT$ & With ACKs (b)\\
+	$U$ & $\displaystyle \frac{L/R}{RTT+L/R}$ & Utilization per packet (percentage)\\
 \hline
-\end{tabular}\\
-
-\begin{tabular}{| r l l |}
+\end{tabular}
+\begin{tabular}{| r l |}
 \hline
-\multicolumn{3}{| c |}{TCP}\\
+	\multicolumn{2}{| c |}{\textbf{P2P}}\\
 \hline
-$SampleRTT$ & & Point sample of a RTT on a TCP connection\\
-$EstimatedRTT$ & $.875 * EstimatedRTT + .125 * SampleRTT$ & Estimated RTT\\
-$DevRTT$ & $(1 - a)DevRTT + \beta|SampleRTT - EstimatedRTT|$ & Deviation in RTT\\
-$TimeoutInterval$ & $EstimatedRTT + 4DevRTT$ & Connection timeout\\
-ACK rule & \multicolumn{2}{l |}{Delay transmission of ACK 500msec if there is no segment already awaiting acknowledgement}\\
+	Napster & Centralized database, P2P file transfers\\
+	Gnutella & Distributed database, query flooding with <10 neighbors\\
+	KaZaA & Group leaders w/ database of assigned peers' data\\
+	      & Added upload limits, request queuing, incentive priorities, parallel downloading\\
+	BitTorrent & Grab small pieces (32Kb-4096Kb) of file from many peers at once\\
+		   & Avoids freeloading by only sending to people sharing well\\
 \hline
 \end{tabular}
 
 \begin{tabular}{| r l |}
 \hline
-\multicolumn{2}{| c |}{P2P}\\
+	\multicolumn{2}{| c |}{\textbf{Network Stack}}\\
 \hline
-Napster & Centralized database, P2P file transfers\\
-Gnutella & Distributed database, query flooding with <10 neighbors\\
-KaZaA & Group leaders w/ database of assigned peers' data\\
-      & Added upload limits, request queuing, incentive priorities, parallel downloading\\
-BitTorrent & Grab small pieces (32Kb-4096Kb) of file from many peers at once\\
-           & Avoids freeloading by only sending to people sharing well\\
+	Five-Layer IP stack & Application\\
+		& Transport\\
+		& Network\\
+		& Link\\
+		& Physical \\
+	Layer 2 & Switch\\
+	Layer 3 & Router\\
+\hline
+\end{tabular}
+\begin{tabular}{| r l l |}
+\hline
+	\multicolumn{3}{| c |}{\textbf{TCP}}\\
+\hline
+	$SampleRTT$ & & Point sample of a RTT on a TCP connection\\
+	$EstimatedRTT$ & $.875 * EstimatedRTT + .125 * SampleRTT$ & Estimated RTT\\
+	$DevRTT$ & $(1 - a)DevRTT + \beta|SampleRTT - EstimatedRTT|$ & Deviation in RTT\\
+	$TimeoutInterval$ & $EstimatedRTT + 4DevRTT$ & Connection timeout\\
+	ACK rule & \multicolumn{2}{l |}{Delay transmission of ACK 500msec if there is no segment already awaiting acknowledgement}\\
 \hline
 \end{tabular}
 
+\begin{tabular}{|c|c|c|c|c|c|c|c|c|c|c|c|c|c|c|c|c|c|c|c|c|c|c|c|c|c|c|c|c|c|c|c|c|}
+\hline
+	\multicolumn{33}{| c |}{\textbf{Packet Structure (32 bits wide)}}\\
+\hline
+	& 0 & 1 & 2 & 3 & 4 & 5 & 6 & 7 & 8 & 9 & 10 & 11 & 12 & 13 & 14 & 15 & 16 & 17 & 18 & 19 & 20 & 21 & 22 & 23 & 24 & 25 & 26 & 27 & 28 & 29 & 30 & 31\\
+\hline
+	\multirow{6}{*}{\rotatebox{90}{IP}}
+		& \multicolumn{4}{|c|}{Version} & \multicolumn{4}{|c|}{Header Len} & \multicolumn{8}{|c|}{TOS} & \multicolumn{16}{|c|}{Len}\\
+		\cline{2-33}
+		& \multicolumn{16}{|c|}{ID} & \multicolumn{3}{|c|}{Flags} & \multicolumn{13}{|c|}{Fragment Offset}\\
+		\cline{2-33}
+		& \multicolumn{8}{|c|}{TTL} & \multicolumn{8}{|c|}{Protocol} & \multicolumn{16}{|c|}{Header Checksum}\\
+		\cline{2-33}
+		& \multicolumn{32}{|c|}{Source IP}\\
+		\cline{2-33}
+		& \multicolumn{32}{|c|}{Destination IP}\\
+		\cline{2-33}
+		& \multicolumn{32}{|c|}{Options}\\
+\hline
+	\multirow{6}{*}{\rotatebox{90}{TCP}}
+		& \multicolumn{16}{|c|}{Source Port \#} & \multicolumn{16}{|c|}{Dest Port \#}\\ 
+		\cline{2-33}
+                & \multicolumn{32}{|c|}{Sequence Number}\\
+		\cline{2-33}
+                & \multicolumn{32}{|c|}{ACK Number}\\
+		\cline{2-33}
+		& \multicolumn{4}{|c|}{Header Len} & \multicolumn{6}{|c|}{Unused} & \rotatebox{90}{URG} & \rotatebox{90}{ACK} & \rotatebox{90}{PSH} & \rotatebox{90}{RST} & \rotatebox{90}{SYN} & \rotatebox{90}{FIN} & \multicolumn{16}{|c|}{Receive Window}\\
+		\cline{2-33} 
+		& \multicolumn{16}{|c|}{Checksum} & \multicolumn{16}{|c|}{Urgent Data Pointer}\\ 
+		\cline{2-33}
+                & \multicolumn{32}{|c|}{Options}\\
+\hline
+\end{tabular}
 \end{document}
