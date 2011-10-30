@@ -148,7 +148,7 @@ def change_video_container(src, dest):
 def transcode_audio(src, dest):
 	"""
 	Changes the video's audio without touching the video. Mainly a
-	massive speed advantage
+	massive speed advantage.
 	"""
 	if not os.path.isfile(src):
 		raise ValueError('Source must be a file')
@@ -251,6 +251,7 @@ def main(argv=None):
 	parser.add_argument('--remove-source', action='store_true', help='Remove the source file after conversion')
 	parser.add_argument('--remove-failed', action='store_true', help='Remove the source file file if conversion fails. Cannot be undone!')
 	parser.add_argument('--no-action', action='store_true', help='Only specify what primary action would be taken for each file, do not perform')
+	parser.add_argument('--allow-audio-only', action='store_true', help='Allow converter to transcode only the audio for a video file. Much faster, but often poor sound quality')
 	parser.add_argument('src', metavar='source', help='What file to convert. If a folder is given, all video files in it are converted.')
 	parser.add_argument('dest', metavar='dest', default='.', nargs='?', help='Where to store converted file. May be a file or directory.')
 	args = parser.parse_args()
@@ -298,7 +299,13 @@ def main(argv=None):
 			else:
 				acount = 1
 				atime = 0
-				
+			
+			# Transcoding only the audio currently uses ffmpeg, which... well, sucks for AAC.
+			# By default, we're going to swap out calls for just audio to do everything and allow
+			# handbrake to make it nice sounding
+			if not args.allow_audio_only and action == transcode_audio:
+				action = transcode_both
+			
 			if not args.no_action:
 				try:
 					# Call and time action
@@ -324,6 +331,7 @@ def main(argv=None):
 					print('\tSkipping to next file')
 					continue
 			else:
+				# Only simulating
 				print('\tWould call:', action.__name__)
 			
 			# Save usage info

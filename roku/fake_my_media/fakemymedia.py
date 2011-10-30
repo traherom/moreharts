@@ -7,6 +7,8 @@ import os
 import time
 from urllib.parse import quote
 from lxml import etree
+from mako.template import Template
+from mako.lookup import TemplateLookup
 
 class FakeMyMedia:
 	def __init__(self, media_root, ip, port=8001):
@@ -29,93 +31,185 @@ class FakeMyMedia:
 		resp = conn.getresponse()
 		body = resp.read()
 		conn.close()
-		print('body', body, 'code=ttan&type=server&server=http://{}%3A{}'.format(self.__ip, self.__port))
 		
 		if resp.status != 302:
 			print('Error registering with rendezvous server:', resp.status)
+			
+		# Lookup engine for the user-facing pages (RSS stuff just built by hand)
+		self.__lookup = TemplateLookup(directories=['.'])
 	
 	@cherrypy.expose
 	def index(self):
-		raise cherrypy.HTTPRedirect('/feed')
+		"""
+		Allows the user to upload a torrent file to download
+		"""
+		template = self.__lookup.get_template('main.html')
+		return template.render()
 	
 	@cherrypy.expose
-	def feed(self, key=None, dir=None):
+	def feed(self, dir=None, sort=None, limit=None):
 		"""
 		Interface that MyMedia mostly talks on
 		"""
 		root = etree.Element('rss', version='2.0')
 
-		if key is None:
+		if dir is None:
 			channel = etree.SubElement(root, 'channel')
 			title = etree.SubElement(channel, 'title').text = 'FakeMyMedia Feed'
 			
-			# Only list videos folder
+			# List "shortcut" folders
 			item = etree.SubElement(channel, 'item')
-			etree.SubElement(item, 'title').text = 'My Videos'
+			etree.SubElement(item, 'title').text = 'Newest 10'
 			etree.SubElement(item, 'image').text = 'http://{}:{}/images/videos_square.jpg'.format(self.__ip, self.__port)
-			etree.SubElement(item, 'link').text = 'http://{}:{}/feed?key={}&dir={}'.format(self.__ip, self.__port, 'video', '.')
-		elif key == 'video':
+			etree.SubElement(item, 'link').text = 'http://{}:{}/feed?dir={}&sort={}&limit={}'.format(self.__ip, self.__port, '.', 'newtoold', 10)
+			
+			item = etree.SubElement(channel, 'item')
+			etree.SubElement(item, 'title').text = 'Recently Watched'
+			etree.SubElement(item, 'image').text = 'http://{}:{}/images/videos_square.jpg'.format(self.__ip, self.__port)
+			etree.SubElement(item, 'link').text = 'http://{}:{}/feed?dir={}&sort={}&limit={}'.format(self.__ip, self.__port, '.', 'watchedtonot', 10)
+			
+			item = etree.SubElement(channel, 'item')
+			etree.SubElement(item, 'title').text = 'Not Recently Watched'
+			etree.SubElement(item, 'image').text = 'http://{}:{}/images/videos_square.jpg'.format(self.__ip, self.__port)
+			etree.SubElement(item, 'link').text = 'http://{}:{}/feed?dir={}&sort={}&limit={}'.format(self.__ip, self.__port, '.', 'nottowatched', 10)
+			
+			# Complete movie listing
+			item = etree.SubElement(channel, 'item')
+			etree.SubElement(item, 'title').text = 'All Movies'
+			etree.SubElement(item, 'image').text = 'http://{}:{}/images/videos_square.jpg'.format(self.__ip, self.__port)
+			etree.SubElement(item, 'link').text = 'http://{}:{}/feed?dir={}'.format(self.__ip, self.__port, '.')
+		else:
 			channel = etree.SubElement(root, 'channel')
 			etree.SubElement(channel, 'title').text = 'Video Feed'
-			etree.SubElement(channel, 'link').text = 'http://{}:{}/feed?key={}&dir={}'.format(self.__ip, self.__port, key, dir)
+			etree.SubElement(channel, 'link').text = 'http://{}:{}/feed?dir={}'.format(self.__ip, self.__port, dir)
 			etree.SubElement(channel, 'description').text = 'My Videos'
 			etree.SubElement(channel, 'theme').text = 'video'
 			etree.SubElement(channel, 'lastBuildDate').text = time.strftime('%a, %d %b %Y %H:%M:%S GMT')
 			
-			# Add each item in current media folder
-			curr_path = os.path.join(self.__media_root, dir)
-			for f in os.listdir(curr_path):
-				# The "pub date" of the item
-				full_path = os.path.join(curr_path, f)
-				mod_time = time.strftime('%a, %d %b %Y %H:%M:%S GMT', time.gmtime(os.path.getmtime(full_path)))
-				
+			# Ensure they aren't having us enumerate a directory they shouldn't
+			curr_path = os.path.abspath(os.path.join(self.__media_root, dir))
+			if not self.__isChildOf(self.__media_root, curr_path):
+				raise ValueError('Invalid directory specified')
+						
+			# Get list of files, pull out their info, and process for order and what-not
+			files = [self.FileInfo(curr_path, f) for f in os.listdir(curr_path)]
+			
+			if sort == 'newtoold':
+				files.sort(key=lambda f: f.mtime, reverse=True)
+			elif sort == 'oldtonew':
+				files.sort(key=lambda f: f.mtime)
+			elif sort == 'watchedtonot':
+				files.sort(key=lambda f: f.atime, reverse=True)
+			elif sort == 'nottowatched':
+				files.sort(key=lambda f: f.atime)
+			else:
+				files.sort(key=lambda f: f.name)
+			
+			# Restrict number shown?
+			limited = False
+			if limit is not None:
+				limit = int(limit)
+				if limit < len(files) and limit > 0:
+					files = files[:limit]
+					limited = True
+			
+			# Add each item to list
+			for f in files:
 				# Well it's an item of some kind
 				item = etree.SubElement(channel, 'item')
 				
 				# Ignore anything but directories and mp4 files
-				if os.path.isdir(f):
-					etree.SubElement(item, 'title').text = f
+				if f.is_dir:
+					etree.SubElement(item, 'title').text = f.name
 					link = etree.SubElement(item, 'link')
-					link.text = 'http://{}:{}/feed?key={}&dir={}'.format(self.__ip, self.__port, key, quote(full_path))
+					link.text = 'http://{}:{}/feed?dir={}'.format(self.__ip, self.__port, quote(f.short_path))
 					etree.SubElement(item, 'description').text = 'Folder'
 					guid = etree.SubElement(item, 'guid')
 					guid.text = link.text
 					guid.set('isPermaLink', 'false')
-					etree.SubElement(item, 'pubDate').text = mod_time
-				elif os.path.basename(f)[-3:] == 'mp4':
-					etree.SubElement(item, 'title').text = f[:-4]
+					etree.SubElement(item, 'pubDate').text = time.strftime('%a, %d %b %Y %H:%M:%S GMT', time.gmtime(f.mtime))
+				elif f.ext == '.mp4':
+					etree.SubElement(item, 'title').text = f.name
 					link = etree.SubElement(item, 'link')
-					link.text = 'http://{}/video/{}'.format(self.__ip, quote(f))
+					link.text = 'http://{}/video/{}'.format(self.__ip, quote(f.short_path))
 					etree.SubElement(item, 'filetype').text = 'mp4'
 					etree.SubElement(item, 'ContentType').text = 'movie'
 					etree.SubElement(item, 'StreamFormat').text = 'mp4'
 					etree.SubElement(item, 'description').text = 'Video'
 					enc = etree.SubElement(item, 'enclosure')
 					enc.set('url', link.text)
-					enc.set('length', str(os.path.getsize(full_path)))
+					enc.set('length', str(f.size))
 					enc.set('type', 'video/mp4')
 					guid = etree.SubElement(item, 'guid')
 					guid.text = link.text
 					guid.set('isPermaLink', 'false')
-					etree.SubElement(item, 'pubDate').text = mod_time
-			
+					etree.SubElement(item, 'pubDate').text = time.strftime('%a, %d %b %Y %H:%M:%S GMT', time.gmtime(f.mtime))
+		
+			# Maybe we'd want to add a "show all" link here if we limited the display?
+			if limited:
+				item = etree.SubElement(channel, 'item')
+				etree.SubElement(item, 'title').text = 'Show All'
+				link = etree.SubElement(item, 'link')
+				link.text = 'http://{}:{}/feed?dir={}&sort={}'.format(self.__ip, self.__port, quote(dir), quote(sort))
+				etree.SubElement(item, 'description').text = 'Show More Videos'
+				guid = etree.SubElement(item, 'guid')
+				guid.text = link.text
+				guid.set('isPermaLink', 'false')
+				etree.SubElement(item, 'pubDate').text = time.strftime('%a, %d %b %Y %H:%M:%S GMT')
+		
 		# Output whatever XML we produced
 		return etree.tostring(root, pretty_print=True)
+	
+	def __isChildOf(self, parent_dir, child_path):
+		"""
+		Checks if the given path is a child of the parent. Returns
+		True if it is, False otherwise
+		"""
+		if not os.path.isdir(parent_dir):
+			raise ValueError('Only directories may be checked')
 			
-	@cherrypy.expose	
-	def mytest(self, param_1=None, param_2=None, *args, **kw):
-		return repr(dict(param_1=param_1,
-			param_2=param_2,
-			args=args,
-			kw=kw))
-
+		parent_dir = os.path.abspath(parent_dir)
+		child_path = os.path.abspath(child_path)
+		
+		if os.path.commonprefix([parent_dir, child_path]) == parent_dir:
+			return True
+		else:	
+			return False
+		
+	class FileInfo:
+		def __init__(self, base, name):
+			"""
+			Stores all file info for quick reference
+			"""
+			# Common to both types
+			self.short_path = name
+			self.path = os.path.join(base, name)
+			self.name = os.path.split(self.path)[1]
+			self.mtime = os.path.getmtime(self.path)
+			self.atime = os.path.getatime(self.path)
+			self.ctime = os.path.getctime(self.path)
+			
+			if os.path.isdir(self.path):
+				# Dir info
+				self.is_dir = True
+			else:
+				# File info
+				self.is_dir = False
+				self.size = os.path.getsize(self.path)
+				self.ext = os.path.splitext(self.path)[1]
+		
+		def __str__(self):
+			return self.path
+		
 # WSGI compatibility
 def application(environ, start_response):
 	"""
 	Run as WSGI application
 	"""
 	cherrypy.config.update(environ['configuration'])
-	cherrypy.tree.mount(FakeMyMedia('/var/samba/media/', environ['SERVER_NAME'], environ['SERVER_PORT']), script_name=environ['SCRIPT_NAME'], config=environ['configuration'])
+	cherrypy.tree.mount(FakeMyMedia('/var/samba/media/',
+		environ['SERVER_NAME'], environ['SERVER_PORT']),
+		script_name=environ['SCRIPT_NAME'], config=environ['configuration'])
 	return cherrypy.tree(environ, start_response)
 
 # Callable from command line
