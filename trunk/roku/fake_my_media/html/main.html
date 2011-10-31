@@ -1,14 +1,24 @@
 <!DOCTYPE html>
 <html>
 <head>
-	<title>Password Storage</title>
+	<title>FakeMyMedia</title>
 </head>
 <body>
-	<h1>Login</h1>
-	<form method="GET">
-		<label for="user">User name:</label>
-		<input type="search" name="movie_name" id="movie_name" autofocus required />
-		<input type="submit" name="search" value="Search" />
+	<form method="POST" enctype="multipart/form-data" action="savetorrent">
+		<table>
+			<tr>
+				<td><label for="torrent_file">Torrent file</label></td>
+				<td><input type="file" name="torrent_file" /></td>
+			</tr>
+			<tr>
+				<td><label for="email">Email</label></td>
+				<td><input type="email" name="email" /></td>
+			</tr>
+			<tr>
+				<td></td>
+				<td><input type="submit" value="Download" /></td>
+			</tr>
+		</table>
 	</form>
 </body>
 </html>
