@@ -5,20 +5,25 @@ import http.client
 import socket
 import os
 import time
+import tempfile
+import stat
 from urllib.parse import quote
 from lxml import etree
 from mako.template import Template
 from mako.lookup import TemplateLookup
 
 class FakeMyMedia:
-	def __init__(self, media_root, ip, port=8001):
+	def __init__(self, media_root, download_root, ip, port=8001):
 		"""
 		Setup fake server
 		"""
 		if not os.path.isdir(media_root):
 			raise ValueError('Media root must be a directory')
+		if not os.path.isdir(download_root):
+			raise ValueError('Download root must be a directory')
 		
 		self.__media_root = os.path.abspath(media_root)
+		self.__download_root = os.path.abspath(download_root)
 		self.__ip = ip
 		self.__port = str(port)
 		
@@ -36,7 +41,7 @@ class FakeMyMedia:
 			print('Error registering with rendezvous server:', resp.status)
 			
 		# Lookup engine for the user-facing pages (RSS stuff just built by hand)
-		self.__lookup = TemplateLookup(directories=['.'])
+		self.__lookup = TemplateLookup(directories=[os.path.join(os.path.dirname(__file__), 'html')])
 	
 	@cherrypy.expose
 	def index(self):
@@ -44,6 +49,35 @@ class FakeMyMedia:
 		Allows the user to upload a torrent file to download
 		"""
 		template = self.__lookup.get_template('main.html')
+		return template.render()
+		
+	@cherrypy.expose
+	def savetorrent(self, torrent_file, email=None):
+		"""
+		Saves the uploaded torrent file and associated email address
+		"""
+		# Drop the torrent file into "to be downloaded" directory
+		handle, torrent_path = tempfile.mkstemp('.torrent', 'fmm-', os.path.join(self.__download_root, 'torrents'))
+		new_file = os.fdopen(handle, 'w')
+		
+		# Copy uploaded data in
+		for line in torrent_file.file:
+			new_file.write(str(line))
+			
+		# Ensure the download portion can actually read the files
+		new_file.close()
+		os.chmod(torrent_path, stat.S_IROTH | stat.S_IRUSR | stat.S_IRGRP)
+		
+		# Make a corresponding .email file as a hacky thing to know who to email once a torrent completes
+		if email is not None:
+			email_path = new_path + '.email'
+			email_file = open(email_path, 'w')
+			email_file.write(email)
+			email_file.close()
+			os.chmod(email_path, stat.S_IROTH | stat.S_IRUSR | stat.S_IRGRP)
+		
+		# Success
+		template = self.__lookup.get_template('saved.html')
 		return template.render()
 	
 	@cherrypy.expose
@@ -207,7 +241,7 @@ def application(environ, start_response):
 	Run as WSGI application
 	"""
 	cherrypy.config.update(environ['configuration'])
-	cherrypy.tree.mount(FakeMyMedia('/var/samba/media/',
+	cherrypy.tree.mount(FakeMyMedia('/var/samba/media/', '/home/traherom/downloads/',
 		environ['SERVER_NAME'], environ['SERVER_PORT']),
 		script_name=environ['SCRIPT_NAME'], config=environ['configuration'])
 	return cherrypy.tree(environ, start_response)
@@ -218,7 +252,7 @@ def main(argv=None):
 	Run cherrypy when called on the command line
 	"""
 	cherrypy.config.update('prod.conf')
-	cherrypy.tree.mount(FakeMyMedia('/var/samba/media/', '192.168.1.50', cherrypy.config['server.socket_port']), '/', 'prod.conf')
+	cherrypy.tree.mount(FakeMyMedia('/var/samba/media/', os.path.expanduser('~/downloads/'), '192.168.1.50', cherrypy.config['server.socket_port']), '/', 'prod.conf')
 	cherrypy.engine.start()
 	cherrypy.engine.block()
 
