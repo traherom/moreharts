@@ -1,0 +1,23 @@
+# Something much easier to type than C-a
+escape ^Ll
+
+# Allow us to detach abruptly
+nonblock on
+autodetach on
+
+# Monitor
+vbell off
+altscreen on
+
+# UI
+startup_message off
+
+shelltitle "$ |bash"
+shell "/bin/bash"
+
+defscrollback 500
+defutf8 on
+
+hardstatus alwayslastline
+hardstatus string '%{= kG}[ %{G}%H %{g}][%= %{= kw}%?%-Lw%?%{r}(%{W}%n*%f%t%?(%u)%?%{r})%{w}%?%+Lw%?%?%= %{g}][ %{W}%c%{g} ]'
+
