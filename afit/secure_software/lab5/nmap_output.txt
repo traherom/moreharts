@@ -1,0 +1,57 @@
+
+traherom@vmramlap:~$ sudo nmap -sV --version-all -O 10.1.2.7 10.1.2.24
+
+Starting Nmap 5.21 ( http://nmap.org ) at 2011-11-02 13:54 EDT
+Nmap scan report for fs-lissard2-01.lissard2.local (10.1.2.7)
+Host is up (0.0023s latency).
+Not shown: 987 closed ports
+PORT     STATE SERVICE     VERSION
+22/tcp   open  ssh         OpenSSH 5.8 (protocol 2.0)
+80/tcp   open  http        Apache httpd 2.2.17 ((Unix) mod_ssl/2.2.17 OpenSSL/1.0.0d PHP/5.3.6)
+139/tcp  open  netbios-ssn Samba smbd 3.X (workgroup: LISSARD2)
+443/tcp  open  ssl/http    Apache httpd 2.2.17 ((Unix) mod_ssl/2.2.17 OpenSSL/1.0.0d PHP/5.3.6)
+445/tcp  open  netbios-ssn Samba smbd 3.X (workgroup: LISSARD2)
+515/tcp  open  printer
+548/tcp  open  afp?
+631/tcp  open  ipp         CUPS 1.4
+873/tcp  open  hp-pjl      (hp-pdl probe got something back)
+5000/tcp open  http        Apache httpd 2.2.17 ((Unix) mod_ssl/2.2.17 OpenSSL/1.0.0d)
+5001/tcp open  http        Apache SSL-only mode httpd
+5432/tcp open  postgresql  PostgreSQL DB
+7001/tcp open  http        Apache httpd 2.2.17 (mod_ssl/2.2.17 OpenSSL/1.0.0d)
+1 service unrecognized despite returning data. If you know the service/version, please submit the following fingerprint at http://www.insecure.org/cgi-bin/servicefp-submit.cgi :
+SF-Port873-TCP:V=5.21%I=9%D=11/2%Time=4EB183DA%P=i686-pc-linux-gnu%r(Hello
+SF:,1F,"@ERROR:\x20protocol\x20startup\x20error\n")%r(Help,1F,"@ERROR:\x20
+SF:protocol\x20startup\x20error\n")%r(LPDString,1F,"@ERROR:\x20protocol\x2
+SF:0startup\x20error\n")%r(NessusTPv12,1F,"@ERROR:\x20protocol\x20startup\
+SF:x20error\n")%r(NessusTPv11,1F,"@ERROR:\x20protocol\x20startup\x20error\
+SF:n")%r(NessusTPv10,1F,"@ERROR:\x20protocol\x20startup\x20error\n")%r(WWW
+SF:OFFLEctrlstat,1F,"@ERROR:\x20protocol\x20startup\x20error\n")%r(Verifie
+SF:r,1F,"@ERROR:\x20protocol\x20startup\x20error\n")%r(VerifierAdvanced,1F
+SF:,"@ERROR:\x20protocol\x20startup\x20error\n")%r(Memcache,1F,"@ERROR:\x2
+SF:0protocol\x20startup\x20error\n");
+MAC Address: 00:11:32:07:2A:1F (Synology Incorporated)
+Device type: general purpose
+Running: Linux 2.6.X
+OS details: Linux 2.6.24 - 2.6.31
+Network Distance: 1 hop
+Service Info: Host: LocalMachine
+
+Nmap scan report for 10.1.2.24
+Host is up (0.0028s latency).
+Not shown: 995 closed ports
+PORT     STATE SERVICE       VERSION
+135/tcp  open  msrpc         Microsoft Windows RPC
+139/tcp  open  netbios-ssn
+445/tcp  open  microsoft-ds  Microsoft Windows 2003 or 2008 microsoft-ds
+1025/tcp open  msrpc         Microsoft Windows RPC
+3389/tcp open  microsoft-rdp Microsoft Terminal Service
+MAC Address: 00:04:23:BF:65:62 (Intel)
+Device type: general purpose
+Running: Microsoft Windows 2003
+OS details: Microsoft Windows Server 2003 SP1 or SP2
+Network Distance: 1 hop
+Service Info: OS: Windows
+
+OS and Service detection performed. Please report any incorrect results at http://nmap.org/submit/ .
+Nmap done: 2 IP addresses (2 hosts up) scanned in 29.25 seconds
