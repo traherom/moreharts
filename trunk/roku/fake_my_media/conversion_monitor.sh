@@ -25,9 +25,9 @@ fi
 echo $$ > $LOCK_FILE
 
 # Any files to process?
-if ls -1 $CONVERTED | grep ^ ; then
+if ls -1 "$UNCONVERTED" | grep ^ ; then
 	echo Starting conversion...
-	$CONVERTER --remove-source --remove-failed $UNCONVERTED $CONVERTED
+	"$CONVERTER" --remove-source --remove-failed "$UNCONVERTED" "$CONVERTED"
 fi
 
 # Unlock

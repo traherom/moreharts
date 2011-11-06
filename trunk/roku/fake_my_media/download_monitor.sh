@@ -17,11 +17,11 @@ echo $$ > $LOCK_FILE
 
 # Look for any complete video files that just finished and copy them for conversion
 # Once we copy them, mark them to not be copied again
-for f in $( find $COMPLETE -name \*.avi -mmin -720 -size 50M ); do
-	echo Copying $f
-	cp $f $UNCONVERTED
-	touch --date="yesterday" $f
-done
+while IFS= read -d $'\0' -r f; do
+	echo Copying "$f"
+	cp "$f" "$UNCONVERTED"
+	touch --date="yesterday" "$f"
+done < <(find "$COMPLETE" -name \*.avi -mmin -720 -size +50M -print0)
 	
 # Unlock for next round
 rm $LOCK_FILE
