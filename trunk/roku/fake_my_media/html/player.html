@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>FakeMyMedia - Playing ${video_title}</title>
+	<script src="static/video.js" type="text/javascript"></script>
+	<link rel="stylesheet" href="static/video-js.css" type="text/css" />
+</head>
+<body style="margin: 0; padding: 0;">
+	<script type="text/javascript">
+	VideoJS.setupAllWhenReady();
+	</script>
+
+	<!-- Begin VideoJS -->
+	<div class="video-js-box">
+		<!-- Using the Video for Everybody Embed Code http://camendesign.com/code/video_for_everybody -->
+		<video class="video-js" controls preload autoplay>
+			<source src="/${video_url}" type='video/mp4; codecs="avc1.42E01E, mp4a.40.2"' />
+		</video>
+		<!-- Download links provided for devices that can't play video in the browser. -->
+		<p class="vjs-no-video"><strong>Download Video:</strong>
+		<a href="/${video_url}">MP4</a>.
+		<!-- Support VideoJS by keeping this link. -->
+		<a href="http://videojs.com">HTML5 Video Player</a> by VideoJS
+		</p>
+	</div>
+	<!-- End VideoJS -->
+</body>
+</html>
+
