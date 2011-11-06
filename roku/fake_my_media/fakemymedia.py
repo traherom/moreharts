@@ -52,34 +52,37 @@ class FakeMyMedia:
 		return template.render()
 		
 	@cherrypy.expose
-	def savetorrent(self, torrent_file, email=None):
+	def savetorrent(self, torrent_file):
 		"""
 		Saves the uploaded torrent file and associated email address
 		"""
 		# Drop the torrent file into "to be downloaded" directory
 		handle, torrent_path = tempfile.mkstemp('.torrent', 'fmm-', os.path.join(self.__download_root, 'torrents'))
-		new_file = os.fdopen(handle, 'w')
-		
-		# Copy uploaded data in
-		for line in torrent_file.file:
-			new_file.write(str(line))
+
+		# Copy by reading/writing files
+		with os.fdopen(handle, 'wb') as new_file:
+			torrent_file.file.seek(0)
+			while True:
+				b = torrent_file.file.read(8192)
+				if not b:
+					break
+				new_file.write(b)
 			
 		# Ensure the download portion can actually read the files
-		new_file.close()
 		os.chmod(torrent_path, stat.S_IROTH | stat.S_IRUSR | stat.S_IRGRP)
-		
-		# Make a corresponding .email file as a hacky thing to know who to email once a torrent completes
-		if email is not None:
-			email_path = new_path + '.email'
-			email_file = open(email_path, 'w')
-			email_file.write(email)
-			email_file.close()
-			os.chmod(email_path, stat.S_IROTH | stat.S_IRUSR | stat.S_IRGRP)
 		
 		# Success
 		template = self.__lookup.get_template('saved.html')
 		return template.render()
-	
+
+	@cherrypy.expose
+	def play(self, video):
+		"""
+		Plays the given video in an HTML5 player
+		"""
+		template = self.__lookup.get_template('player.html')
+		return template.render(video_title=os.path.basename(video), video_url=os.path.join('video', video))
+
 	@cherrypy.expose
 	def feed(self, dir=None, sort=None, limit=None):
 		"""

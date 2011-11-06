@@ -210,7 +210,18 @@ def transcode(src, dest, do_audio = True):
 	# Actually do the encoding into temp, then move it afterward
 	f, temp_dest = tempfile.mkstemp(suffix='.mp4')
 	os.close(f)
-	p = subprocess.Popen(['HandBrakeCLI', '-f', 'mp4', '--decomb', '--encoder', 'x264', '--aencoder', audio_encoder, '-O', '-i', src, '-o', temp_dest], stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+	p = subprocess.Popen(['HandBrakeCLI',
+		'-f', 'mp4', # MP4 container
+		'--encoder', 'x264', # H.264
+		'--decomb', # Check for and remove interlacing
+		'--detelecine', # Bump up from 24 fps if it's a TV show, basically
+		'-r', '29.97', # Always this fps
+		'--aencoder', audio_encoder, # Ensure it's AAC audio
+		'-a', '1', # Only one audio track
+		'-ab', '160', # 160 kbps audio
+		'-O', # Optomize for streaming
+		'-i', src,
+		'-o', temp_dest], stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
 
 	# Keep a status message up so the user doesn't feel a sense of hopelessness
 	exp = re.compile("^Encoding: task ([0-9]+) of ([0-9]+), ([0-9.]+) %(?: \\(.+ETA ([0-9]{2})h([0-9]{2})m([0-9]{2})s\\))?$")
