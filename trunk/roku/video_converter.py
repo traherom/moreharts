@@ -217,9 +217,8 @@ def transcode(src, dest, do_audio = True):
 		'--detelecine', # Bump up from 24 fps if it's a TV show, basically
 		'-r', '29.97', # Always this fps
 		'--aencoder', audio_encoder, # Ensure it's AAC audio
-		'-a', '1', # Only one audio track
-		'-ab', '160', # 160 kbps audio
-		'-O', # Optomize for streaming
+		'--ab', '160', # 160 kbps audio
+		'-O', # Optimize for streaming
 		'-i', src,
 		'-o', temp_dest], stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
 
