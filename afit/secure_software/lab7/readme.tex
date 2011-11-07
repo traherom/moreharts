@@ -1,0 +1,45 @@
+\documentclass{article}
+\usepackage[margin=0.5in]{geometry}
+\usepackage{listings}
+\usepackage{color}
+\usepackage{graphicx}
+\usepackage{placeins}
+\usepackage{fancyhdr}
+\usepackage{wrapfig}
+\begin{document}
+\pagestyle{fancy}
+\rhead{Ryan Morehart}
+
+\section{Task 1 - Static Seed}
+\par Output:
+\lstinputlisting{task1_output.txt}
+
+\section{Task 2 - Time-based Seed}
+\par Output:
+\lstinputlisting{task2_output.txt}
+
+\par Despite the random appearance, these numbers are not truly random. They are completely deterministic from the seed they started with, based on whatever mathematical algorithm is inside. 
+
+\section{Task 3 - Using /dev/random}
+\par Code:
+\lstset{language=C}
+\lstinputlisting{task3.c}
+
+\par Output:
+\lstinputlisting{task3_output.txt}
+
+\par Once again, these appear random. /dev/random should be better than /dev/urandom, as it will block in order to ensure that enough entropy is available. However, an attacker might still be able to influence all of the factors that get pulled into the number. In general it should be strong enough to defeat all but the most determined.
+
+\section{Task 4 - Research}
+\subsection{Excel}
+\par According to http://support.microsoft.com/kb/828795, Excel 2003 and later uses a Wichman-Hill procedure to guarrantee that the PRNG does not repeat before $10^{13}$ numbers. http://support.microsoft.com/kb/86523 provides the exact algorithm, which is:
+$$r=frac(9821 * r + 0.211327)$$
+
+\subsection{Random functions in Java}
+\par As with Excel, Java's primary Random() class uses a linear congruential formula for its generator (http://download.oracle.com/javase/6/docs/api/java/util/Random.html). The Java API also offers the SecureRandom class, which should offer cryptographically secure random numbers. The exact implementation is left up the the JVM for a particular platform though, with implementations explicitly being allowed to use pseudo-random number generation from a truly random seed or producing stand-alone truly random numbers (http://download.oracle.com/javase/6/docs/api/java/security/SecureRandom.html).
+
+\subsection{www.random.org}
+\par random.org uses small variations in atmospheric noise to generate truly random numbers.
+
+\end{document}
+
