@@ -199,6 +199,7 @@ class RokuRemote:
 
 				# Work?
 				if roku_model is not None:
+					print()
 					return ip
 			except socket.error as e:
 				# Well clearly that one didn't work
