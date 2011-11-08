@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>FakeMyMedia - ${main.title}</title>
+</head>
+<body>
+	<h1>${main.title}</h1>
+	<ul>
+		% for item in folders:
+			<li><a href="${item.url}">${item.name}</a></li>
+		% endfor
+		% for item in videos:
+			<li><a href="/play?video=${item.url}">${item.name}</a></li>
+		% endfor
+	</ul>
+</body>
+</html>

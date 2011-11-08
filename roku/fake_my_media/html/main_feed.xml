@@ -1,0 +1,33 @@
+<%!
+import time
+%><rss version="2.0">
+	<channel>
+		<title>${main.title | x}</title>
+		<link>${main.baseurl | x}${main.url | x}</title>
+		<description>My Videos</description>
+		<theme>video</theme>
+		<lastBuildDate><% t = time.strftime('%a, %d %b %Y %H:%M:%S GMT') %>${t | x}</lastBuildDate>
+		% for item in folders:
+			<item>
+				<title>${item.name | x}</title>
+				<link>${main.baseurl | x}${item.url | x}</link>
+				<description>Folder</description>
+				<guid isPermaLink="false">${main.baseurl | x}${item.url | x}</guid>
+				<pubDate>${item.date | x}</pubDate>
+			</item>
+		% endfor
+		% for item in videos:
+			<item>
+				<title>${item.name}</title>
+				<link>${main.baseurl | x}${item.url | x}</link>
+				<filetype>mp4</filetype>
+				<ContentType>movie</ContentType>
+				<StreamFormat>mp4</StreamFormat>
+				<description>Video</description>
+				<enclosure url="${main.baseurl | x}${item.url | x}" length="${item.size}" type="video/mp4" />
+				<guid isPermaLink="false">${main.baseurl | x}${item.url | x}</guid>
+				<pubDate>${item.date | x}</pubDate>
+			</item>
+		% endfor
+	</channel>
+</rss>
