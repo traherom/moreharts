@@ -22,11 +22,11 @@ class MainPage:
 		self.__curr_users = {}
 		
 		# Save template lookup info
-		self.__json = TemplateLookup(directories=[os.path.join(os.path.dirname(__file__), 'json')])
+		self.__lookup = TemplateLookup(directories=[os.path.join(os.path.dirname(__file__), 'templates')])
 
 	@cherrypy.expose
 	def index(self):
-		template = self.__lookup().get_template('login')
+		template = self.__lookup.get_template('login')
 		return template.render()
 	
 	@cherrypy.expose
@@ -35,10 +35,10 @@ class MainPage:
 		try:
 			pw_holder = self.__get_user(user, pw)
 		except ValueError as e:
-			template = self.__lookup().get_template('message')
+			template = self.__lookup.get_template('message')
 			return template.render(success=False, message=str(e))
 		except pwdholder.PwdFileError as e:
-			template = self.__lookup().get_template('message')
+			template = self.__lookup.get_template('message')
 			return template.render(success=False, message=str(e))
 			
 		# Create unused session ID
@@ -49,13 +49,13 @@ class MainPage:
 		self.__curr_users[sid] = [pw_holder, time.time()] # Include IP? TBD
 		
 		# Yeah!
-		template = self.__lookup().get_template('session_start')
+		template = self.__lookup.get_template('session_start')
 		return template.render(success=True, sid=sid)
 	
 	@cherrypy.expose
 	def logout(self, sid):
 		del(self.__curr_users[sid])
-		template = self.__lookup().get_template('message')
+		template = self.__lookup.get_template('message')
 		return template.render(success=True, message='Logged Out')
 	
 	@cherrypy.expose
@@ -64,7 +64,7 @@ class MainPage:
 		pw_holder = self.__curr_user[sid]
 		site_user, site_pw = pw_holder.get_password(site)
 		
-		template = self.__lookup().get_template('site_info')
+		template = self.__lookup.get_template('site_info')
 		return template.render(success=True, site=site, site_user=site_user, site_pw=site_pw)
 		
 	@cherrypy.expose
@@ -75,7 +75,7 @@ class MainPage:
 		pw_holder.save_passwords(pw)
 		
 		# Yeah!
-		template = self.__lookup().get_template('message')
+		template = self.__lookup.get_template('message')
 		return template.render(success=False, message='User info not provided')
 	
 	@cherrypy.expose
@@ -108,12 +108,6 @@ class MainPage:
 		
 		# Try to open
 		return pwdholder.PasswordHolder(pw_loc, pw, False)
-	
-	def __lookup(self):
-		"""
-		Returns the proper lookup table (json vs html)
-		"""
-		return self.__json
 	
 	def __isChildOf(self, parent_dir, child_path):
 		"""
