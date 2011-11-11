@@ -26,7 +26,7 @@ class MainPage:
 
 	@cherrypy.expose
 	def index(self):
-		template = self.__lookup.get_template('login')
+		template = self.__lookup.get_template('index.html')
 		return template.render()
 	
 	@cherrypy.expose
@@ -35,10 +35,10 @@ class MainPage:
 		try:
 			pw_holder = self.__get_user(user, pw)
 		except ValueError as e:
-			template = self.__lookup.get_template('message')
+			template = self.__lookup.get_template('message.json')
 			return template.render(success=False, message=str(e))
 		except pwdholder.PwdFileError as e:
-			template = self.__lookup.get_template('message')
+			template = self.__lookup.get_template('message.json')
 			return template.render(success=False, message=str(e))
 			
 		# Create unused session ID
@@ -49,13 +49,13 @@ class MainPage:
 		self.__curr_users[sid] = [pw_holder, time.time()] # Include IP? TBD
 		
 		# Yeah!
-		template = self.__lookup.get_template('session_start')
+		template = self.__lookup.get_template('session_start.json')
 		return template.render(success=True, sid=sid)
 	
 	@cherrypy.expose
 	def logout(self, sid):
 		del(self.__curr_users[sid])
-		template = self.__lookup.get_template('message')
+		template = self.__lookup.get_template('message.json')
 		return template.render(success=True, message='Logged Out')
 	
 	@cherrypy.expose
@@ -64,7 +64,7 @@ class MainPage:
 		pw_holder = self.__curr_user[sid]
 		site_user, site_pw = pw_holder.get_password(site)
 		
-		template = self.__lookup.get_template('site_info')
+		template = self.__lookup.get_template('site_info.json')
 		return template.render(success=True, site=site, site_user=site_user, site_pw=site_pw)
 		
 	@cherrypy.expose
@@ -75,7 +75,7 @@ class MainPage:
 		pw_holder.save_passwords(pw)
 		
 		# Yeah!
-		template = self.__lookup.get_template('message')
+		template = self.__lookup.get_template('message.json')
 		return template.render(success=False, message='User info not provided')
 	
 	@cherrypy.expose
