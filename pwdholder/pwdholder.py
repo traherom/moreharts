@@ -19,7 +19,7 @@ class PasswordHolder:
 	SALT = 'FaNyyfcAkoNdh4fY6qNW'
 	AES_MODE = AES.MODE_CFB
 	
-	def __init__(self, pwFilePath, master_pw=None, salt=None, newDB=False):
+	def __init__(self, pwFilePath, master_pw=None, salt=None, new_db=False):
 		"""
 		Loads up the given password file and initializes the lookup table
 		"""		
@@ -40,9 +40,9 @@ class PasswordHolder:
 		# Load database
 		self.__pwdb_lock = threading.Lock()
 		self.__pwdb = {}
-		self.reload_passwords(pwFilePath, newDB)
+		self.reload_passwords(pwFilePath, new_db)
 		
-	def reload_passwords(self, pwFilePath=None, newDB=False):
+	def reload_passwords(self, pwFilePath=None, new_db=False):
 		"""
 		Loads up the password file into memory for fast reference
 		"""
@@ -55,7 +55,7 @@ class PasswordHolder:
 		
 		# Does the file exist already? If not, just save new passwords there
 		# Alternatively, the user may ask us to not load from the file... IE, wipe it
-		if not newDB and os.path.isfile(self.__pwFilePath):
+		if not new_db and os.path.isfile(self.__pwFilePath):
 			# Open and decrypt file if needed
 			with open(self.__pwFilePath, 'rb') as f:
 				pwdb = f.read()
@@ -106,7 +106,7 @@ class PasswordHolder:
 							line = f.readline()
 					except ValueError as e:
 						raise PwdFileError('Password store appears to be corrupted')
-		elif newDB:
+		elif new_db:
 			# Use a blank DB
 			print('Creating new store')
 		else:
