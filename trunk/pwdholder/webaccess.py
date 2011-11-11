@@ -26,11 +26,17 @@ class MainPage:
 
 	@cherrypy.expose
 	def index(self):
+		"""
+		Loads up an HTML5 page that uses the JSON calls to handle everything
+		"""
 		template = self.__lookup.get_template('index.html')
 		return template.render()
 	
 	@cherrypy.expose
 	def login(self, user, pw):
+		"""
+		Logs a user in and caches their password database
+		"""
 		# Get teh user
 		try:
 			pw_holder = self.__get_user(user, pw)
@@ -54,12 +60,24 @@ class MainPage:
 	
 	@cherrypy.expose
 	def logout(self, sid):
+		"""
+		Removes an active session. Only drops the user's database from
+		cache if it was the last session for that user
+		"""
+		# Ensure it is saved
+		self.__curr_users[sid].save_passwords()
+		
+		# And remove
 		del(self.__curr_users[sid])
+		
 		template = self.__lookup.get_template('message.json')
 		return template.render(success=True, message='Logged Out')
 	
 	@cherrypy.expose
 	def get_password(self, sid, site):
+		"""
+		Retrieves a password from a user's database
+		"""
 		# Pull the info and send to user
 		pw_holder = self.__curr_user[sid]
 		site_user, site_pw = pw_holder.get_password(site)
@@ -68,11 +86,14 @@ class MainPage:
 		return template.render(success=True, site=site, site_user=site_user, site_pw=site_pw)
 		
 	@cherrypy.expose
-	def set_password(self, sid, site, site_user, site_pw):	
+	def set_password(self, sid, site, site_user, site_pw):
+		"""
+		Sets/resets a password for a site
+		"""
 		# Set password and force a write
 		pw_holder = self.__curr_user[sid]
 		pw_holder.set_password(site, site_user, site_pw)
-		pw_holder.save_passwords(pw)
+		pw_holder.save_passwords()
 		
 		# Yeah!
 		template = self.__lookup.get_template('message.json')
@@ -90,7 +111,10 @@ class MainPage:
 		
 		length = random.randrange(min_len, max_len)
 		pw = ''.join([random.choice(charset) for i in range(length)])
-		return pw
+		
+		# Return to user
+		template = self.__lookup.get_template('password.json')
+		return template.render(success=True, password=pw)
 		
 	def __get_user(self, user, pw):
 		"""
