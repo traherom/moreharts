@@ -49,9 +49,9 @@ def decimalToBinary(dec):
 			# Find the first one in the fraction part
 			firstOne = fracPartBin.index('1')
 			
-			# And shift
+			# And shift, taking only up to 23 bits of precision
 			exp = -1 * (firstOne + 1)
-			fracPartBin = fracPartBin[firstOne + 1:]
+			fracPartBin = fracPartBin[firstOne + 1:firstOne + 24]
 			wholePartBin = '1'
 		else:
 			# Shift it down to have wholePart just be '1' every time
