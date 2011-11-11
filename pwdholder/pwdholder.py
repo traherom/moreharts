@@ -5,6 +5,9 @@ import base64
 import argparse
 import getpass
 import io
+import threading
+import hashlib
+from Crypto.Cipher import AES
 
 class PasswordHolder:
 	"""
@@ -13,14 +16,33 @@ class PasswordHolder:
 	"""
 	MAGIC_VALUE = 'pwdholder'
 	VERSION = 1
+	SALT = 'FaNyyfcAkoNdh4fY6qNW'
+	AES_MODE = AES.MODE_CFB
 	
-	def __init__(self, pwFilePath, key=None, newDB=False):
+	def __init__(self, pwFilePath, master_pw=None, salt=None, newDB=False):
 		"""
 		Loads up the given password file and initializes the lookup table
-		"""
-		self.reload_passwords(pwFilePath, key, newDB)
+		"""		
+		# Create encryption key based on password and salt
+		if master_pw is not None:
+			h = hashlib.sha256()
+			h.update(master_pw.encode())
+			
+			if salt is None:
+				h.update(self.SALT.encode())
+			else:
+				h.update(salt.encode())
+				
+			self.__key = h.digest()
+		else:
+			self.__key = None
+			
+		# Load database
+		self.__pwdb_lock = threading.Lock()
+		self.__pwdb = {}
+		self.reload_passwords(pwFilePath, newDB)
 		
-	def reload_passwords(self, pwFilePath=None, key=None, newDB=False):
+	def reload_passwords(self, pwFilePath=None, newDB=False):
 		"""
 		Loads up the password file into memory for fast reference
 		"""
@@ -31,9 +53,6 @@ class PasswordHolder:
 		else:
 			self.__pwFilePath = pwFilePath
 		
-		# Memory cache for passwords
-		self.__pwdb = {}
-		
 		# Does the file exist already? If not, just save new passwords there
 		# Alternatively, the user may ask us to not load from the file... IE, wipe it
 		if not newDB and os.path.isfile(self.__pwFilePath):
@@ -42,11 +61,18 @@ class PasswordHolder:
 				pwdb = f.read()
 			
 			# Decrypt?
-			if key is not None:
-				pass
+			if self.__key is not None:
+				aes = AES.new(self.__key, self.AES_MODE)
+				pwdb = aes.decrypt(pwdb)
+				
+			# Make it into a string from bytes
+			try:
+				pwdb = pwdb.decode()
+			except UnicodeDecodeError as e:
+				raise PwdFileError('Incorrect decryption key and/or no encryption applied')
 			
 			# Treat (possibly decrypted) DB as a file again
-			with io.StringIO(pwdb.decode()) as f:
+			with io.StringIO(pwdb) as f:
 				# Check magic value/version
 				try:
 					magic, version = f.readline().rstrip().split(' ', 1)
@@ -62,40 +88,60 @@ class PasswordHolder:
 				if int(version) > self.VERSION:
 					raise PwdFileError('Password store version newer')
 		
-				# Read in all passwords
-				try:
-					line = f.readline()
-					while line:
-						# Split into url, user, and pw state and decode them all
-						url, user, pw = [base64.b64decode(s.encode()).decode() for s in line.split(':')]
-				
-						# Save to memory cache
-						self.__pwdb[url] = (user, pw)
-						
-						# Next!
+				with self.__pwdb_lock:
+					# Blank current list
+					self.__pwdb = {}
+					
+					# Read in all passwords
+					try:
 						line = f.readline()
-				except ValueError as e:
-					raise PwdFileError('Password store appears to be corrupted')
+						while line:
+							# Split into url, user, and pw state and decode them all
+							url, user, pw = [base64.b64decode(s.encode()).decode() for s in line.split(':')]
+				
+							# Save to memory cache
+							self.__pwdb[url] = (user, pw)
+						
+							# Next!
+							line = f.readline()
+					except ValueError as e:
+						raise PwdFileError('Password store appears to be corrupted')
 		elif newDB:
 			# Use a blank DB
 			print('Creating new store')
 		else:
 			raise PwdFileError('Password store not found')
 			
-	def save_passwords(self, key=None):
+	def save_passwords(self):
 		"""
 		Flushes out passwords to disk
 		"""
-		# We're going to re-write the whole file
-		with open(self.__pwFilePath, 'w') as f:
+		# Write DB to an in-memory string, encrypt if needed, then dump to disk
+		with io.StringIO() as f:
 			# Version/magic value ID
 			f.write(self.MAGIC_VALUE + ' ' + str(self.VERSION) + '\n')
 		
-			# Encode and write each url
-			for url in self.__pwdb:
-				user, pw = self.__pwdb[url]
-				line = ':'.join([base64.b64encode(s.encode()).decode() for s in [url, user, pw]]) + '\n'
-				f.write(line)
+			with self.__pwdb_lock:
+				# Encode and write each url
+				for url in self.__pwdb:
+					user, pw = self.__pwdb[url]
+					line = ':'.join([base64.b64encode(s.encode()).decode() for s in [url, user, pw]]) + '\n'
+					f.write(line)
+			
+			# Save final string
+			pwdb = f.getvalue()
+			
+		# Encrypt?
+		if self.__key is not None:
+			aes = AES.new(self.__key, self.AES_MODE)
+			pwdb = aes.encrypt(pwdb)
+		else:
+			# Turn to bytes
+			pwdb = pwdb.encode()
+
+		# We're going to re-write the whole file
+		with open(self.__pwFilePath, 'wb') as f:
+			f.write(pwdb)
 
 	def get_password(self, url):
 		"""
@@ -103,7 +149,8 @@ class PasswordHolder:
 		Return None if there is no saved password for it
 		"""
 		try:
-			return self.__pwdb[url]
+			with self.__pwdb_lock:
+				return self.__pwdb[url]
 		except KeyError as e:
 			# No password currently saved for URL
 			return None
@@ -113,7 +160,8 @@ class PasswordHolder:
 		Saves the given password to our in-memory database.
 		To flush it out to disk, save_passwords() must be called
 		"""
-		self.__pwdb[url] = (user, pw)
+		with self.__pwdb_lock:
+			self.__pwdb[url] = (user, pw)
 
 class PwdFileError(Exception):
 	"""
@@ -136,26 +184,27 @@ def main(argv):
 	parser.add_argument('--new-database', action='store_true', help='Removes all the passwords in the database')
 	parser.add_argument('--set', action='store_true', help='Sets the username/password for the given URL')
 	parser.add_argument('--no-encryption', action='store_true', help='Saves password database without encryption. Not recommended')
+	parser.add_argument('--salt', default=None, help='Sets salt to use for encryption key. If none given, uses builtin salt')
 	parser.add_argument('--db', default='~/.pwholder', metavar='pwfile', help='Path to the password database file. Defaults to ~/.pwholder')
 	parser.add_argument('url', metavar='url', help='URL of username/password to pull out')
 	args = parser.parse_args()
 	
 	# Need key?
 	if not args.no_encryption:
-		key = getpass.getpass('Master password: ')
+		master_pw = getpass.getpass('Master password: ')
 	else:
-		key = None
+		master_pw = None
 	
 	try:
 		# Load passwords
-		pwHolder = PasswordHolder(os.path.expanduser(args.db), key, args.new_database)
+		pwHolder = PasswordHolder(os.path.expanduser(args.db), master_pw, args.salt, args.new_database)
 	
 		if args.set:
 			# Set password
 			user = input('Username: ')
 			pw = getpass.getpass('Password: ');
 			pwHolder.set_password(args.url, user, pw)
-			pwHolder.save_passwords(key)
+			pwHolder.save_passwords()
 		else:
 			# Pull out password
 			pw = pwHolder.get_password(args.url)
@@ -164,6 +213,11 @@ def main(argv):
 				print('Password:', pw[1])
 			else:
 				print('No password saved for given URL')
+				
+		# If we made a new database, always save it
+		if args.new_database:
+			pwHolder.save_passwords()
+			
 	except PwdFileError as e:
 		print(e)
 		
