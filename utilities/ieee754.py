@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import sys
+import argparse
 
 def decimalToBinary(dec):
 	print("Converting", dec, "to binary")
@@ -43,12 +44,28 @@ def decimalToBinary(dec):
 		print("Decimal in binary = " + wholePartBin + "." + fracPartBin)
 
 		# Normalize the result
-		exp = len(wholePartBin) - 1
-		fracPartBin = wholePartBin[1:] + fracPartBin
-		fracPartBin = fracPartBin[:23]
+		# Determine which way to shift
+		if wholePartBin == '0':
+			# Find the first one in the fraction part
+			firstOne = fracPartBin.index('1')
+			
+			# And shift
+			exp = -1 * (firstOne + 1)
+			fracPartBin = fracPartBin[firstOne + 1:]
+			wholePartBin = '1'
+		else:
+			# Shift it down to have wholePart just be '1' every time
+			exp = len(wholePartBin) - 1
+			fracPartBin = wholePartBin[1:] + fracPartBin
+			fracPartBin = fracPartBin[:23]
+			wholePartBin = '1'
+			
+		if len(fracPartBin) == 0:
+			fracPartBin = '0'
 
-		print("Normalized = 1." + fracPartBin + " * 2^" + str(exp))
+		print("Normalized = {}.{} * 2^{}".format(wholePartBin, fracPartBin, str(exp)))
 
+		# Determine the exponent to store
 		expWithBias = exp + 127
 		expBin = bin(expWithBias)[2:]
 
@@ -64,16 +81,16 @@ def decimalToBinary(dec):
 	# Sanity check
 	result = signB + expBin + fracPartBin
 	if len(result) != 32:
-		print("########### wrong length!! ###########")
+		print("########### wrong length for final result!! ###########")
 
 	return result
 
 def binaryToDecimal(bin):
-	print("Converting", bin, "(" + hex(int(bin, 2)) + ") to base 10 decimal")
+	print("Converting {} ({}) to base 10 decimal".format(bin, hex(int(bin, 2))))
 
 	# Incoming sanity check
 	if len(bin) != 32:
-		print("Binary string not long enough (only", len(bin), "bits)")
+		print('Binary string must be 32 bits (' + len(bin) + ' receieved). Single precision floats only.')
 		exit()
 
 	# Sign?
@@ -95,31 +112,43 @@ def binaryToDecimal(bin):
 			fracD += pow(2, (-1 * (i + 1)))
 
 	# Info for user
-	print("Sign bit =", signB)
-	print("Exponent =", expB, "=", expD)
-	print("Fraction =", fracB, "=", fracD)
-	print("-1^" + str(signB) + " * (1 + " + str(fracD) + ") * 2^(" + str(expD) + " - 127)")
+	print("Sign bit = {}".format(signB))
+	print("Exponent = {} = {}".format(expB, expD))
+	print("Fraction = {} = {}".format(fracB, fracD))
+	print('-1^{} * (1 + {}) * 2^({} - 127)'.format(str(signB), str(fracD), str(expD)))
 
 	return signD * (1 + fracD) * pow(2, expD - 127)
 
 def main(argv = None):
-	if argv is None or len(argv) != 3:
-		print("Usage:", argv[0], "<b|h|d> <number>")
-		exit()
+	if argv is None:
+		argv = sys.argv
+		
+	# Parse arguments
+	parser = argparse.ArgumentParser(description='Converts between decimal and IEEE754 binary format')
+	parser.add_argument('num', metavar='number', help='Number to convert to IEEE754 format. If hex (prefix \'0x\')or binary (suffix \'b\'), assumed to be a IEEE754 number to convert to decimal')
+	args = parser.parse_args()
 	
-	if argv[1] == "d":
-		result = decimalToBinary(argv[2])
-	elif argv[1] == "h":
-		hexBin = bin(int(argv[2], 16))[2:]
-		result = binaryToDecimal("0" * (32 - len(hexBin)) + hexBin)
-	elif argv[1] == "b":
-		result = binaryToDecimal(argv[2])
+	# Pass to appropriate parser
+	if args.num[:2] == '0x':
+		# Convert to appropriately-sized binary string
+		hexBin = bin(int(args.num, 16))[2:]
+		hexBin = "0" * (32 - len(hexBin)) + hexBin
+		result = binaryToDecimal(hexBin)
+		print("Final result:", result)
+	
+	elif args.num[-1].lower() == 'b':
+		result = binaryToDecimal(args.num[:-1])
+		print("Final result:", result)
+	
 	else:
-		print("Number type must be one of (b)inary, (h)ex, or (d)ecimal")
-		exit()
+		if len(args.num) == 32:
+			print('WARNING: Treating as decimal. To use as binary, append \'b\' to the number')
+			print()
+			
+		result = decimalToBinary(args.num)
+		print("Final result: {} ({})".format(result, hex(int(result, 2))))
 
-	print("Final result:", result)
-
+# Run main
 if __name__ == '__main__':
 	main(sys.argv)
 
