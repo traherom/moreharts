@@ -1,0 +1,6 @@
+{
+	"success": ${str(success).lower()},
+	"site": "${site}",
+	"user": "${site_user}",
+	"password": "${site_pw}"
+}
