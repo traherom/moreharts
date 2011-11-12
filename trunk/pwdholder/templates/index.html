@@ -10,6 +10,91 @@
 	<script src="http://code.jquery.com/mobile/latest/jquery.mobile.js"></script>
 
 	<script src="static/pwdholder.js"></script>
+	
+	<script type="text/javascript">
+		$(document).ready(function() {
+			$("#login_form").submit(function() {
+				PwdHolder.login(
+					$("#master_user").val(),
+					$("#master_pw").val(),
+					function(success, data) {
+						if(success)
+							$.mobile.changePage("#get_password");
+						else
+							alert(data.message); // TBD: prettier
+					});
+				return false;
+			});
+	
+			$("#set_form").submit(function() {
+				PwdHolder.set(
+					$("#site_url_set").val(),
+					$("#site_user_set").val(),
+					$("#site_pw_set").val(),
+					function(success, data) {
+						if(success) {
+							// Immediately make call out to get the new values
+							$("#site_url_get").val($("#site_url_set").val());
+							$("#get_form").submit();
+							$.mobile.changePage("#get_password", { reverse: true });
+						}
+						else
+							alert(data.message); // TBD: prettier
+					});
+				return false;
+			});
+	
+			$("#get_form").submit(function() {
+				PwdHolder.get(
+					$("#site_url_get").val(),
+					function(success, data) {
+						if(success) {
+							$("#site_user_get_result").val(data.site_user);
+							$("#site_pw_get_result").val(data.site_pw);
+						}
+						else {
+							alert(data.message); // TBD: prettier
+						}
+					});
+				return false;
+			});
+	
+			$("#generate_form").submit(function() {
+				PwdHolder.generate(
+					$("#generate_min_len").val(),
+					$("#generate_max_len").val(),
+					$("#generate_include_punc").val(),
+					function(success, data) {
+						if(success)
+							$("#generate_pw_result").val(data.password);
+						else
+							$("#generate_pw_result").val(data.message);
+					});
+				return false;
+			});
+	
+			$("a[href=#login]").click(function(event) {
+				PwdHolder.logout(function() {
+					$.mobile.changePage("#login");
+				});
+		
+				event.preventDefault();
+			});
+	
+			// Choose starting page
+			PwdHolder.checkLogin(function(loggedIn, data) {
+				if(loggedIn) {
+					// Logged in! Go to requested page if possible
+					if($.mobile.activePage.attr('id') == "login")
+						$.mobile.changePage("#get_password");
+				}
+				else {
+					// Not logged in
+					$.mobile.changePage("#login");
+				}
+			});
+		});
+	</script>
 </head>
 <body>
 
@@ -41,13 +126,13 @@
 <div id="get_password" data-role="page">
 	<div data-role="header" data-position="fixed">
 		<h1>Get Password</h1>
+		<a href="#login" data-direction="reverse" class="ui-btn-right">Logout</a>
 		
 		<div data-role="navbar" data-iconpos="left">
 			<ul>
 				<li><a href="#get_password" data-icon="search" class="ui-btn-active">Get</a></li>
 				<li><a href="#set_password" data-icon="plus">Set</a></li>
 				<li><a href="#generate" data-icon="grid">Generate</a></li>
-				<li><a href="#login" data-icon="alert" data-direction="reverse">Logout</a></li>
 			</ul>
 		</div>
 	</div>
@@ -67,13 +152,11 @@
 		<div data-role="fieldcontain">
 			<label for="site_user_get_result">User</label>
 			<input type="text" id="site_user_get_result" value="" disabled />
-			<button id="copy_site_user" data-inline="true">Select</button>
 		</div>
 		
 		<div data-role="fieldcontain">
 			<label for="site_pw_get_result">Password</label>
 			<input type="text" id="site_pw_get_result" value="" disabled />
-			<button id="copy_site_pw" data-inline="true">Select</button>
 		</div>
 	</div> 
 </div>
@@ -81,13 +164,13 @@
 <div id="generate" data-role="page">
 	<div data-role="header" data-position="fixed">
 		<h1>Generate Password</h1>
+		<a href="#login" data-direction="reverse" class="ui-btn-right">Logout</a>
 		
 		<div data-role="navbar" data-iconpos="left">
 			<ul>
 				<li><a href="#get_password" data-icon="search" data-direction="reverse">Get</a></li>
 				<li><a href="#set_password" data-icon="plus" data-direction="reverse">Set</a></li>
 				<li><a href="#generate" data-icon="grid" class="ui-btn-active">Generate</a></li>
-				<li><a href="#login" data-icon="alert" data-direction="reverse">Logout</a></li>
 			</ul>
 		</div>
 	</div>
@@ -123,7 +206,6 @@
 		<div data-role="fieldcontain">
 			<label for="generated_pw">Password</label>
 			<input type="text" id="generate_pw_result" value="" disabled />
-			<button id="copy_generated_pw" data-inline="true">Select</button>
 		</div>
 	</div> 
 </div>
@@ -131,13 +213,13 @@
 <div id="set_password" data-role="page">
 	<div data-role="header" data-position="fixed">
 		<h1>Set Password</h1>
+		<a href="#login" data-direction="reverse" class="ui-btn-right">Logout</a>
 		
 		<div data-role="navbar" data-iconpos="left">
 			<ul>
 				<li><a href="#get_password" data-icon="search" data-direction="reverse">Get</a></li>
 				<li><a href="#set_password" data-icon="plus" class="ui-btn-active">Set</a></li>
 				<li><a href="#generate" data-icon="grid">Generate</a></li>
-				<li><a href="#login" data-icon="alert" data-direction="reverse">Logout</a></li>
 			</ul>
 		</div>
 	</div> 
