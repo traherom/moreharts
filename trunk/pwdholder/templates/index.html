@@ -2,29 +2,169 @@
 <html>
 <head>
 	<title>Password Holder</title>
-	<script src="https://ajax.googleapis.com/ajax/libs/jquery/1/jquery.min.js"></script>
+	
+	<meta name="viewport" content="width=device-width, initial-scale=1"> 
+	
+	<link rel="stylesheet" href="http://code.jquery.com/mobile/latest/jquery.mobile.min.css" />
+	<script src="http://code.jquery.com/jquery.js"></script>
+	<script src="http://code.jquery.com/mobile/latest/jquery.mobile.js"></script>
+
 	<script src="static/pwdholder.js"></script>
 </head>
 <body>
 
-<script type="text/javascript">
-
-</script>
-
-<div id="login">
-	Login
+<div id="login" data-role="page">
+	<div data-role="header">
+		<h1>Login</h1>
+	</div>
+	
+	<div data-role="content">
+		<form method="GET" action="login" id="login_form">
+			<div data-role="fieldcontain">
+				<label for="master_user">User</label>
+				<input type="text" id="master_user" name="user" value="" placeholder="Username" />
+			</div>
+			
+			<div data-role="fieldcontain">
+				<label for="master_pw">Password</label>
+				<input type="password" id="master_pw" name="pw" value="" />
+			</div>
+			
+			<div data-role="fieldcontain" class="ui-hide-label">
+				<label for="login_submit">Login</label>
+				<input type="submit" id="login_submit" value="Login" />
+			</div>
+		</form>
+	</div>
 </div>
 
-<div id="get_password">
-	Get
+<div id="get_password" data-role="page">
+	<div data-role="header" data-position="fixed">
+		<h1>Get Password</h1>
+		
+		<div data-role="navbar" data-iconpos="left">
+			<ul>
+				<li><a href="#get_password" data-icon="search" class="ui-btn-active">Get</a></li>
+				<li><a href="#set_password" data-icon="plus">Set</a></li>
+				<li><a href="#generate" data-icon="grid">Generate</a></li>
+				<li><a href="#login" data-icon="alert" data-direction="reverse">Logout</a></li>
+			</ul>
+		</div>
+	</div>
+	
+	<div data-role="content">
+		<!-- Search box -->
+		<form method="GET" action="get_password" id="get_form">
+			<div data-role="fieldcontain">
+				<label for="site_url_get">Site</label>
+				<input type="search" id="site_url_get" name="site" value="" placeholder="URL" data-inline="true" />
+				<label for="get_submit" class="ui-hidden-accessible">Get Password</label>
+				<input type="submit" id="get_submit" value="Get" data-inline="true" />
+			</div>
+		</form>
+		
+		<!-- Results -->		
+		<div data-role="fieldcontain">
+			<label for="site_user_get_result">User</label>
+			<input type="text" id="site_user_get_result" value="" disabled />
+			<button id="copy_site_user" data-inline="true">Select</button>
+		</div>
+		
+		<div data-role="fieldcontain">
+			<label for="site_pw_get_result">Password</label>
+			<input type="text" id="site_pw_get_result" value="" disabled />
+			<button id="copy_site_pw" data-inline="true">Select</button>
+		</div>
+	</div> 
 </div>
 
-<div id="set_pasword">
-	Set
+<div id="generate" data-role="page">
+	<div data-role="header" data-position="fixed">
+		<h1>Generate Password</h1>
+		
+		<div data-role="navbar" data-iconpos="left">
+			<ul>
+				<li><a href="#get_password" data-icon="search" data-direction="reverse">Get</a></li>
+				<li><a href="#set_password" data-icon="plus" data-direction="reverse">Set</a></li>
+				<li><a href="#generate" data-icon="grid" class="ui-btn-active">Generate</a></li>
+				<li><a href="#login" data-icon="alert" data-direction="reverse">Logout</a></li>
+			</ul>
+		</div>
+	</div>
+	
+	<div data-role="content">
+		<!-- Search box -->
+		<form method="GET" action="generate" id="generate_form">
+			<div data-role="fieldcontain">
+				<label for="generate_min_len">Minimum Length</label>
+				<input type="range" id="generate_min_len" min="1" max="100" value="12" name="min_len" />
+			</div>
+			
+			<div data-role="fieldcontain">
+				<label for="generate_max_len">Maximum Length</label>
+				<input type="range" id="generate_max_len" min="1" max="100" value="15" name="max_len" />
+			</div>
+			
+			<div data-role="fieldcontain">
+				<label for="generate_include_punc">Include Punctuation</label>
+				<select id="generate_include_punc" data-role="slider">
+					<option value="">Off</option>
+					<option value="!@#$%^&*()?">On</option>
+				</select>
+			</div>
+			
+			<div data-role="fieldcontain">
+				<label for="generate_submit" class="ui-hidden-accessible">Generate Password</label>
+				<input type="submit" id="generate_submit" value="Generate" />
+			</div>
+		</form>
+		
+		<!-- Results -->		
+		<div data-role="fieldcontain">
+			<label for="generated_pw">Password</label>
+			<input type="text" id="generate_pw_result" value="" disabled />
+			<button id="copy_generated_pw" data-inline="true">Select</button>
+		</div>
+	</div> 
 </div>
 
-<div id="logout">
-	Logged out
+<div id="set_password" data-role="page">
+	<div data-role="header" data-position="fixed">
+		<h1>Set Password</h1>
+		
+		<div data-role="navbar" data-iconpos="left">
+			<ul>
+				<li><a href="#get_password" data-icon="search" data-direction="reverse">Get</a></li>
+				<li><a href="#set_password" data-icon="plus" class="ui-btn-active">Set</a></li>
+				<li><a href="#generate" data-icon="grid">Generate</a></li>
+				<li><a href="#login" data-icon="alert" data-direction="reverse">Logout</a></li>
+			</ul>
+		</div>
+	</div> 
+	
+	<div data-role="content">
+		<form method="GET" action="set_password" id="set_form">
+			<div data-role="fieldcontain">
+				<label for="site_url_set">Site</label>
+				<input type="text" id="site_url_set" name="site" value="" placeholder="URL" />
+			</div>
+			
+			<div data-role="fieldcontain">
+				<label for="site_user_set">User</label>
+				<input type="text" id="site_user_set" name="site_user" value="" placeholder="Site Username" />
+			</div>
+			
+			<div data-role="fieldcontain">
+				<label for="site_pw_set">Password</label>
+				<input type="text" id="site_pw_set" name="site_pw" value="" placeholder="Site Password" />
+			</div>
+			
+			<div data-role="fieldcontain" class="ui-hide-label">
+				<label for="set_submit">Save Password</label>
+				<input type="submit" id="set_submit" value="Save" />
+			</div>
+		</form>
+	</div>
 </div>
 
 </body>

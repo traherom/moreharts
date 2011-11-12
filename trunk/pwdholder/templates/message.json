@@ -1,4 +1,0 @@
-{
-	"message": "${message}",
-	"success": ${str(success).lower()}
-}
