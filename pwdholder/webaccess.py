@@ -7,6 +7,7 @@ import sys
 import os
 import binascii
 import time
+import json
 from mako.template import Template
 from mako.lookup import TemplateLookup
 
@@ -44,11 +45,9 @@ class MainPage:
 		try:
 			pw_holder = self.__get_user(user, pw)
 		except ValueError as e:
-			template = self.__lookup.get_template('message.json')
-			return template.render(success=False, message='Invalid username/password')
+			return self.__send_json(success=False, message='Invalid username/password')
 		except pwdholder.PwdFileError as e:
-			template = self.__lookup.get_template('message.json')
-			return template.render(success=False, message='Invalid username/password')
+			return self.__send_json(success=False, message='Invalid username/password')
 		
 		# Take this opportunity to expire old sessions
 		self.expire_sessions(time.time() - self.session_length)
@@ -94,8 +93,7 @@ class MainPage:
 		self.__sessions[sid] = [pw_holder, user, time.time()]
 		
 		# Yeah!
-		template = self.__lookup.get_template('session_start.json')
-		return template.render(success=True, sid=sid)
+		return self.__send_json(success=True, sid=sid)
 	
 	@cherrypy.expose
 	def logout(self, sid):
@@ -109,19 +107,22 @@ class MainPage:
 		self.expire_sessions(time.time() - self.session_length)
 		
 		# Success
-		template = self.__lookup.get_template('message.json')
-		return template.render(success=True, message='Logged Out')
+		return self.__send_json(success=True, message='Logged Out')
 	
 	@cherrypy.expose
 	def reload_passwords(self, sid):
 		"""
 		Forces cache to refresh from disk
 		"""
-		pw_holder = self.__sessions[sid][0]
+		try:
+			pw_holder = self.__sessions[sid][0]
+		except KeyError as e:
+			return self.__send_json(success=False, message='Your session has expired')
+		
+		
 		pw_holder.reload_passwords()
 		
-		template = self.__lookup.get_template('message.json')
-		return template.render(success=False, message='Passwords reloaded')
+		return self.__send_json(success=False, message='Passwords reloaded')
 	
 	@cherrypy.expose
 	def save_passwords(self, sid):
@@ -131,13 +132,11 @@ class MainPage:
 		try:
 			pw_holder = self.__sessions[sid][0]
 		except KeyError as e:
-			template = self.__lookup.get_template('message.json')
-			return template.render(success=False, message='Your session has expired')
+			return self.__send_json(success=False, message='Your session has expired')
 			
 		pw_holder.save_passwords()
 		
-		template = self.__lookup.get_template('message.json')
-		return template.render(success=False, message='Passwords saved')
+		return self.__send_json(success=False, message='Passwords saved')
 		
 	@cherrypy.expose
 	def get_password(self, sid, site):
@@ -147,19 +146,16 @@ class MainPage:
 		try:
 			pw_holder = self.__sessions[sid][0]
 		except KeyError as e:
-			template = self.__lookup.get_template('message.json')
-			return template.render(success=False, message='Your session has expired')
+			return self.__send_json(success=False, message='Your session has expired')
 			
 		# Pull the info and send to user
 		result = pw_holder.get_password(site)
 		
 		if result is not None:
-			template = self.__lookup.get_template('site_info.json')
-			return template.render(success=True, site=site, site_user=result[0], site_pw=result[1])
+			return self.__send_json(success=True, site=site, site_user=result[0], site_pw=result[1])
 		else:
 			# Not Found
-			template = self.__lookup.get_template('message.json')
-			return template.render(success=False, message='No password stored for site')
+			return self.__send_json(success=False, message='No password stored for site')
 			
 	@cherrypy.expose
 	def set_password(self, sid, site, site_user, site_pw):
@@ -169,16 +165,26 @@ class MainPage:
 		try:
 			pw_holder = self.__sessions[sid][0]
 		except KeyError as e:
-			template = self.__lookup.get_template('message.json')
-			return template.render(success=False, message='Your session has expired')
+			return self.__send_json(success=False, message='Your session has expired')
 			
 		# Set password and force a write
 		pw_holder.set_password(site, site_user, site_pw)
 		pw_holder.save_passwords()
 		
 		# Yeah!
-		template = self.__lookup.get_template('message.json')
-		return template.render(success=True, message='New password saved')
+		return self.__send_json(success=True, message='New password saved')
+	
+	@cherrypy.expose
+	def who_am_i(self, sid):
+		"""
+		Lets a client retrieve the user name of the session they have
+		"""
+		try:
+			user = self.__sessions[sid][1]
+		except KeyError as e:
+			return self.__send_json(success=False, message='Your session has expired')
+		
+		return self.__send_json(success=True, username=user)
 	
 	@cherrypy.expose
 	def generate_password(self, min_len=12, max_len=25, extra_chars='', session_id=None):
@@ -191,12 +197,17 @@ class MainPage:
 		charset = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
 		charset += extra_chars
 		
-		length = random.randrange(min_len, max_len)
+		min_len = int(min_len)
+		max_len = int(max_len)
+		if min_len < max_len:
+			length = random.randrange(min_len, max_len)
+		else:
+			length = min_len
+				
 		pw = ''.join([random.choice(charset) for i in range(length)])
 		
 		# Return to user
-		template = self.__lookup.get_template('password.json')
-		return template.render(success=True, password=pw)
+		return self.__send_json(success=True, password=pw)
 	
 	def expire_sessions(self, oldest_time):
 		"""
@@ -233,6 +244,14 @@ class MainPage:
 		except KeyError as e:
 			# Likely an invalid session, ignore and show normal success
 			return False
+	
+	def __send_json(self, **kwargs):
+		"""
+		Returns the given variables as a JSON file and sets the content-type
+		appropriately. The caller still must return it to cherrypy though
+		"""
+		cherrypy.response.headers["Content-Type"] = "application/json"
+		return json.dumps(kwargs, sort_keys=True, indent=4).encode()
 	
 	def __get_user(self, user, pw):
 		"""
