@@ -133,6 +133,7 @@ def main(argv = None):
 		# Convert to appropriately-sized binary string
 		hexBin = bin(int(args.num, 16))[2:]
 		hexBin = "0" * (32 - len(hexBin)) + hexBin
+		
 		result = binaryToDecimal(hexBin)
 		print("Final result:", result)
 	
