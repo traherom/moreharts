@@ -19,12 +19,16 @@ class PasswordHolder:
 	SALT = 'FaNyyfcAkoNdh4fY6qNW'
 	AES_MODE = AES.MODE_CFB
 	
-	def __init__(self, pwFilePath, master_pw=None, salt=None, new_db=False):
+	def __init__(self, pwFilePath, master_pw=None, master_key=None, salt=None, new_db=False):
 		"""
 		Loads up the given password file and initializes the lookup table
 		"""		
 		# Create encryption key based on password and salt
-		if master_pw is not None:
+		if master_key is not None:
+			# They provided us the key, just use that
+			self.__key = master_key
+		elif master_pw is not None:
+			# Construct key from password
 			h = hashlib.sha256()
 			h.update(master_pw.encode())
 			
@@ -35,13 +39,23 @@ class PasswordHolder:
 				
 			self.__key = h.digest()
 		else:
+			# No encryption
 			self.__key = None
 			
 		# Load database
 		self.__pwdb_lock = threading.Lock()
 		self.__pwdb = {}
 		self.reload_passwords(pwFilePath, new_db)
-		
+	
+	def get_key(self):
+		"""
+		Returns the encryption key currently in use. Mainly for the
+		web access, so that it can associate the key with the session
+		without storing the actual password. Not that much safer, but
+		at least the password itself isn't compromised.
+		"""
+		return self.__key
+	
 	def reload_passwords(self, pwFilePath=None, new_db=False):
 		"""
 		Loads up the password file into memory for fast reference
