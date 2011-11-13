@@ -25,10 +25,13 @@ fi
 echo $$ > $LOCK_FILE
 
 # Any files to process?
-if ls -1 "$UNCONVERTED" | grep ^ ; then
-	echo Starting conversion...
-	"$CONVERTER" --remove-source --remove-failed "$UNCONVERTED" "$CONVERTED"
-fi
+while IFS= read -d $'\0' -r f; do
+	echo Converting "$f"...
+	"$CONVERTER" --remove-source --remove-failed "$f" "$CONVERTED"
+
+	echo Emailing status!
+	gmailer --from ryan@moreharts.com --to ryan@moreharts.com --to caitlin@moreharts.com --subject "Video conversion complete" --body "$f is now available for viewing"	
+done < <(find "$UNCONVERTED" -name \*.avi -print0)
 
 # Unlock
 rm $LOCK_FILE
