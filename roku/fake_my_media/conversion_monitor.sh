@@ -4,6 +4,7 @@ LOCK_FILE=~/.conversion_monitor
 DOWNLOAD_LOCK_FILE=~/.download_monitor
 UNCONVERTED=~/downloads/unconverted
 CONVERTED=~/downloads/converted
+MAILER=~/bin/gmailer
 
 # Don't run if the download monitor is still copying stuff
 # Also require a clean exit, make it remove its own file
@@ -30,7 +31,7 @@ while IFS= read -d $'\0' -r f; do
 	"$CONVERTER" --remove-source --remove-failed "$f" "$CONVERTED"
 
 	echo Emailing status!
-	gmailer --from ryan@moreharts.com --to ryan@moreharts.com --to caitlin@moreharts.com --subject "Video conversion complete" --body "$f is now available for viewing"	
+	"$MAILER" --from ryan@moreharts.com --to ryan@moreharts.com --to caitlin@moreharts.com --subject "Video conversion complete" --body "$f is now available for viewing"	
 done < <(find "$UNCONVERTED" -name \*.avi -print0)
 
 # Unlock
