@@ -184,8 +184,7 @@ class FakeMyMedia:
 					item.date = time.strftime('%a, %d %b %Y %H:%M:%S GMT', time.gmtime(f.mtime))
 					videos.append(item)
 		
-		# Roku or normal browser?
-		print(cherrypy.request.headers.get('User-Agent'))
+		# Choose correct template
 		if cherrypy.request.headers.get('User-Agent', '').find('Roku') != -1:
 			template = self.__lookup.get_template('main_feed.xml')
 		else:

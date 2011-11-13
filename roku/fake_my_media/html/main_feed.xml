@@ -3,7 +3,7 @@ import time
 %><rss version="2.0">
 	<channel>
 		<title>${main.title | x}</title>
-		<link>${main.baseurl | x}${main.url | x}</title>
+		<link>${main.baseurl | x}${main.url | x}</link>
 		<description>My Videos</description>
 		<theme>video</theme>
 		<lastBuildDate><% t = time.strftime('%a, %d %b %Y %H:%M:%S GMT') %>${t | x}</lastBuildDate>
@@ -12,6 +12,7 @@ import time
 				<title>${item.name | x}</title>
 				<link>${main.baseurl | x}${item.url | x}</link>
 				<description>Folder</description>
+				<image>http://media.moreharts.com:80/images/videos_square.jpg</image>
 				<guid isPermaLink="false">${main.baseurl | x}${item.url | x}</guid>
 				<pubDate>${item.date | x}</pubDate>
 			</item>
