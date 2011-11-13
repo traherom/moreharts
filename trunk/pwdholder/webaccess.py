@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 import cherrypy
-import pwdholder
 import re
 import random
 import sys
@@ -11,11 +10,18 @@ import json
 from mako.template import Template
 from mako.lookup import TemplateLookup
 
+try:
+	import pwdholder
+except ImportError as e:
+	# Probably running under Apache, which screws with import dirs
+	sys.path[0] = os.path.dirname(__file__)
+	import pwdholder
+
 class MainPage:
 	def __init__(self, save_location='.'):
 		# Directory location for password files
 		if not os.path.isdir(save_location):
-			raise IOError('Save location is not directory or does not exist')
+			raise ValueError('Save location is not directory or does not exist')
 			
 		self.__save_location = save_location
 		self.session_length = 60 * 60 * 24 * 7
@@ -65,8 +71,6 @@ class MainPage:
 			pw_holder, count = self.__users[user]
 			if count >= 10:
 				# They have! Remove their oldest session
-				print(user, 'has exceeded their maximum number of logins')
-				
 				oldest_age = None
 				oldest_sid = None
 				for sid in self.__sessions:
@@ -81,11 +85,9 @@ class MainPage:
 				count = count - 1
 				
 			# Insert their new session
-			print("Dupe login for {}, now at {} sessions".format(user, count + 1))
 			self.__users[user] = (pw_holder, count + 1)
 		else:
 			# They weren't, so save this new db to the user's lookup
-			print("New login for {}".format(user))
 			self.__users[user] = (pw_holder, 1)
 		
 		# Save to cache with the start time of the session
@@ -209,13 +211,16 @@ class MainPage:
 		# Return to user
 		return self.__send_json(success=True, password=pw)
 	
+	@cherrypy.expose
+	def path(self):
+		return str(sys.path)
+
 	def expire_sessions(self, oldest_time):
 		"""
 		Expires sessions older than the given time
 		"""
 		for sid in list(self.__sessions.keys()):
 			if self.__sessions[sid][2] < oldest_time:
-				print('Expiring session', sid)
 				self.remove_session(sid)
 	
 	def remove_session(self, sid):
@@ -234,10 +239,8 @@ class MainPage:
 			pw_holder, count = self.__users[user]
 			if count > 1:
 				self.__users[user] = (pw_holder, count - 1)
-				print("Logout for {}, now at {} sessions".format(user, count - 1))
 			else:
 				del(self.__users[user])
-				print("Final logout for {}".format(user))
 			
 			return True
 			
@@ -269,7 +272,7 @@ class MainPage:
 	
 		# Try to open
 		return pwdholder.PasswordHolder(pwdb_loc, master_pw=pw, new_db=False)
-	
+
 	def __isChildOf(self, parent_dir, child_path):
 		"""
 		Checks if the given path is a child of the parent. Returns
@@ -289,10 +292,15 @@ class MainPage:
 # WSGI
 def application(environ, start_response):
 	"""
-	Run as WSGI application
+	Run as WSGI application.
+	
+	WARNING: It appears that the app gets reloaded for each request under Apache. Process forking may be the cause.
+	This prevents the app from actually working. However, fixing this would be entirely possible CherryPy sessions
+	were used and the password files were decrypted each time. The recommended setup is to instead run it behind
+	mod_rewrite
 	"""
 	cherrypy.config.update(environ['configuration'])
-	cherrypy.tree.mount(MainPage(), script_name=environ['SCRIPT_NAME'], config=environ['configuration'])
+	cherrypy.tree.mount(MainPage('/var/password_store'), script_name=environ['SCRIPT_NAME'], config=environ['configuration'])
 	return cherrypy.tree(environ, start_response)
 
 # Standalone
@@ -300,14 +308,12 @@ def main(argv=None):
 	"""
 	Run password holder as a standalone cherrypy app
 	"""
-	if argv is None:
-		argv = sys.argv
-		
 	cherrypy.config.update('prod.conf')
-	cherrypy.tree.mount(MainPage(), '/', 'prod.conf')
+	cherrypy.tree.mount(MainPage('/var/password_store/'), '/', 'prod.conf')
 	cherrypy.engine.start()
 	cherrypy.engine.block()
-
+	return 0
+	
 if __name__ == '__main__':
-	main(sys.argv)
+	sys.exit(main(sys.argv))
 	
