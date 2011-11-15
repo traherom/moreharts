@@ -3,7 +3,7 @@ all : task3 readme
 clean :
 	rm -f task3 *.o *.aux *.log *.pdf
 
-test : all
+test : task3
 	./task3
 
 readme : readme.tex
