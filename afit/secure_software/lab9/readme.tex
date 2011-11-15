@@ -1,0 +1,56 @@
+\documentclass{article}
+\usepackage[margin=0.5in]{geometry}
+\usepackage{listings}
+\usepackage{color}
+\usepackage{graphicx}
+\usepackage{placeins}
+\usepackage{fancyhdr}
+\usepackage{wrapfig}
+\begin{document}
+\pagestyle{fancy}
+\rhead{Ryan Morehart}
+
+\title{Secure Software - Lab 9}
+\author{Ryan Morehart}
+\maketitle
+
+\section{Task 1 - SQL Injection}
+\subsection{Video Vulnerabilities and Fixes}
+\par The video begins by showing how a single quote (') causes an error, as the query is no longer valid. We then see the use of a comment (--) to remove the remainder of the author-intended query. Next comes a union as part of the injection string, where the "attacker" pulls from the users table and drops the requested info into what the application will actually process.
+
+\par The vulnerability is that the developer contatenated unfiltered user input. To fix this, the video first escaped any single quotes (' to '', for SQL Server). However, the bigger and more important fix was changing the query to a parameterized query. Now the user input does not get treated by SQL as special in any way, protecting this particular query fully.
+
+\subsection{Real-World}
+\par The popular Drupal PHP CMS has had SQL injection vulnerabilities in the past. In one example (http://drupal.org/node/65357), a function that limited query results (simply by adding a LIMIT to the SELECT) failed to filter the user-supplied beginning and ending ranges. The exact call looked like:
+\begin{verbatim}
+...
+$query = preg_replace_callback(DB_QUERY_REGEXP, '_db_query_callback', $query);
+$query .= ' LIMIT '. $from .', '. $count;
+...
+\end{verbatim}
+
+\par If an attacker made \$from or \$count into an appropriate string, they had complete freedom. For example, if \$from = "1 UNION user, password FROM users --", then they would be able to pull the username and password of every person in the Drupal database.
+
+\par To fix this vulnerability, \$from and \$count were cast to integers, making it impossible to inject malicious strings.
+
+\section{Task 2 - Cross-Site Scripting}
+\subsection{Video Vulnerabilities and Fixes}
+\par The "attacker" posts HTML that contains Javascript. Any Javascript the attacker desires would be valid here, but they demonstrate pulling out the user's cookie and altering the HTML of the page (it changes the image to Google's logo).
+
+\par To fix this vulnerability, we simply encode all user-supplied data that is being dropped back onto the site. Additionally, ASP.NET includes built-in filtering for HTML from user input, preventing the user's from ever entering the HTML in the first place. However, the video author warns to not rely soley on it.
+
+\subsection{Real-World}
+\par Again picking on Drupal, http://drupal.org/node/661586 documents two XSS vulnerabilities. The first of these allows users with the ability to create contact categories to insert arbitrary HTML into the contact module administration page. This is not a terribly high-priority vulerability, as the people who could do this should already be trusted. However, it would allow someone with lower privileges to steal the cookie of the main admin.
+
+\par The fix for this was easy. The vulernable code was:
+\begin{verbatim}
+...
+while ($category = db_fetch_object($result)) {
+    $rows[] = array($category->category, $category->recipients, ($category->selected ? t('Yes') : t('No')), l(t('edit'), 'admin/build/contact/edit/'. $category->cid), l(t('delete'), 'admin/build/contact/delete/'. $category->cid));
+}
+\end{verbatim}
+
+\par The vulnerable varibles here are \$category->category and \$category->recipients. These two were wrapped in a filtering function that prevented non-safe characters being saved.
+
+\end{document}
+
