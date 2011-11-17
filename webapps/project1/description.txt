@@ -1,2 +1,0 @@
-<p>Demonstrates basic HTML items in a frameset page. The items to be shown are
-CSS, tables, and a form. But seriously, framesets? Ew.</p>
