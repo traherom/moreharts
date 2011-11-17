@@ -1,2 +1,0 @@
-<p>Demonstrates a lot of Javascript. I mean, not like we haven't
-already done that on this page...</p>

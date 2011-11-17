@@ -1,4 +1,0 @@
-
-<!-- End content -->
-</body>
-</html>
