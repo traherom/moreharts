@@ -1,4 +1,4 @@
-#! /usr/bin/env mzscheme
+#!/usr/bin/env racket
 #lang scheme
 (require (lib "pregexp.ss"))
 
