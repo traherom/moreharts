@@ -20,7 +20,7 @@ class Route:
 			v = '-'
 		c = self.cost
 		
-		return '{:>4}, {:>3}, {}'.format(d, v, c) 
+		return '{:>4}, {:>3}, {:<3}'.format(d, v, c) 
 
 class Node:
 	def __init__(self, id):
@@ -33,6 +33,7 @@ class Node:
 		self.__route_lock = threading.RLock()
 		self.__routes = []
 		self.__direct_routes = []
+		self.__is_updated = True
 		self.add_connection(self, 0)
 		
 		# Keep a history of old routing tables
@@ -60,33 +61,34 @@ class Node:
 		"""
 		Receives an update from another node
 		"""
-		#print('Update from', from_node.get_id(), 'to', self.get_id())
-		#print(self.__str_routes(table_update))
+		print('Update from', from_node.get_id(), 'to', self.get_id())
+		print(self.__str_routes(table_update))
 		
-		#print('Current table')
-		#print(self.__str_routes(self.__routes))
+		print('Current table')
+		print(self.__str_routes(self.__routes))
 		
 		with self.__route_lock:
 			# How for is it to this node?
 			route_to_from = self.__find_route(self.__routes, from_node)
 		
-			# Copy old table and add routes to it that table_update holds
-			all_routes = list(self.__routes)
-			all_routes.extend(table_update)
-			#new_routes.extend([Route(route.dest, route_to_from.via, route_to_from.cost + route.cost) for route in table_update])
+			# Combine old table and the update to get the list of all links we know about
+			links = list(self.__routes)
+			links.extend(table_update)
 
-			# Create list of known nodes and edges
-			new_routes = list(self.__routes)
-			links = []
-			for route in all_routes:
+			# Create non-duplicate list of known nodes, all infinity away except for ourselves
+			new_routes = [Route(self, self, 0)]
+			for route in links:
 				if self.__find_route(new_routes, route.dest) is None:
-					new_routes.append(Route(route.dest, None, float('inf')))
-				links.append(route)
+					new_routes.append(Route(route.dest, None, 100000))
 
 			# Run Bellman-Ford
-			for route in new_routes:
+			for i in range(len(new_routes)):
+				#print('Route debug update')
+				#print(self.__str_routes(new_routes), self.__str_routes(links))
+				#print('Done update')
+			
 				for link in links:
-					# Get the existing route (if there is one) to where this link goes
+					# Get the existing route to where this link goes
 					curr_route = self.__find_route(new_routes, link.dest)
 					
 					# Get the route to the beginning point of this link (if we know of one)
@@ -97,22 +99,22 @@ class Node:
 						# Faster, save this one
 						curr_route.via = link.via
 						curr_route.cost = via_route.cost + link.cost
-			
+						
 			# Did we change anything?
-			changed = False
+			self.__is_updated = False
 			if len(new_routes) != len(self.__routes):
 				# Whelp, something must have changed
-				changed = True
+				self.__is_updated = True
 			else:
 				# Have to do more detailed check
 				for new_route in new_routes:
-					old_route = self.__find_route(self.__routes, route.dest)
-					if not (old_route.via is new_route.via or old_route.cost != new_route.cost):
-						changed = True
+					old_route = self.__find_route(self.__routes, new_route.dest)
+					if old_route.via is not new_route.via or old_route.cost != new_route.cost:
+						self.__is_updated = True
 						break
 			
 			# Update everyone else if we changed
-			if changed:
+			if self.__is_updated:
 				# Save new table
 				self.__routes = new_routes
 				self.save_history()
@@ -121,39 +123,55 @@ class Node:
 				print('New table:')
 				print(self.__str_routes(self.__routes))
 				
-				# Update our neighbors
-				self.send_routes()
+				# Update our neighbors in the future
+				#self.send_routes()
 			
-			return changed
+			return self.__is_updated
 
-	def send_routes(self):
+	def send_routes(self, force=False):
 		"""
 		Sends routing info to all direct-connected nodes, rewriting our tables to 
-		show the routes through ourselves
+		show the routes through ourselves. Only done if Node has actually been updated
+		since the last time it sent
 		"""
+		# Skip if not needed
+		if not force and not self.__is_updated:
+			return False
+		
+		changed = False
 		for route in self.__direct_routes:
 			if route.dest is not self:
-				route.dest.update_routes(self, [Route(route.dest, self, route.cost) for route in self.__routes])
+				if route.dest.update_routes(self, [Route(route.dest, self, route.cost) for route in self.__routes]):
+					changed = True
+					
+		# Changes have been sent
+		self.__is_updated = False
+		
+		return changed
 	
 	def add_connection(self, neighbor, cost):
 		"""
 		Adds a direct connection to our table
 		"""
 		with self.__route_lock:
-			self.__routes.append(Route(neighbor, neighbor, cost))
-			self.__direct_routes.append(Route(neighbor, neighbor, cost))
+			self.__routes.append(Route(neighbor, self, cost))
+			self.__direct_routes.append(Route(neighbor, self, cost))
 	
 	def __find_route(self, route_table, dest):
 		"""
 		Locates the route to the given destination
 		"""
+		# Never mind "no route"
+		if dest is None:
+			return None
+			
 		# Ensure it works with both string ids and actual nodes
 		if type(dest) is not str:
 			dest = dest.get_id()
 		
 		with self.__route_lock:
 			for route in route_table:
-				if route.dest.get_id() == dest:
+				if route.dest is not None and route.dest.get_id() == dest:
 					return route
 				
 		# Not found
@@ -191,6 +209,13 @@ def main(argv=None):
 	x = Node('x')
 	y = Node('y')
 	z = Node('z')
+	nodes = {
+		'u' : u,
+		'v' : v,
+		'x' : x,
+		'y' : y,
+		'z' : z
+		}
 	
 	# Initial Routes
 	u.add_connection(v, 4)
@@ -218,39 +243,38 @@ def main(argv=None):
 	z.save_history()
 	
 	print('=== Initial routes (direct connections) ===')
-	print(u)
-	print(v)
-	print(x)
-	print(y)
-	print(z)
+	for key in nodes:
+		print(nodes[key])
 	
-	# Have everybody transmit, once they all have it should have propagated everywhere
-	print('u sending routes...')
-	u.send_routes()
-	print('y sending routes...')
-	y.send_routes()
-	print('x sending routes...')
-	x.send_routes()
-	print('y sending routes...')
-	y.send_routes()
-	print('z sending routes...')
-	z.send_routes()
-	
-	# Final z
-	node = z
-	print('=== FINAL {} ==='.format(node.get_id()))
-	print(node)
+	# Have everybody transmit until no more changes are detected
+	changed = True
+	while changed:
+		changed = False
+		for key in nodes:
+			n = nodes[key]
+			print('{} sending routes...'.format(n.get_id()))
+			if n.send_routes():
+				changed = True
 	
 	# Show full history of one node
-	print('=== HISTORY FOR {} ==='.format(node.get_id()))
-	hist = node.get_history()
-	for i in range(5):
-		for state in hist:
-			if len(state) > i:
-				print(state[i], '|', end='')
-			else:
-				print(' '*14, end='')
-		print()
+	print('=== HISTORY ===')
+	for key in nodes:
+		node = nodes[key]
+		
+		print('History for {}:'.format(node.get_id()))
+		hist = node.get_history()
+		for i in range(len(nodes)):
+			for state in hist:
+				if len(state) > i:
+					print(state[i], '|', end='')
+				else:
+					print(' '*16, end='')
+			print()
+	
+	# Final for one node
+	node = nodes['z']
+	print('=== FINAL {} ==='.format(node.get_id()))
+	print(node)
 	
 	return 0
 	
