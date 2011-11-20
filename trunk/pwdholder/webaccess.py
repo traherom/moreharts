@@ -6,30 +6,30 @@ import sys
 import os
 import binascii
 import time
+import string
 import json
 from mako.template import Template
 from mako.lookup import TemplateLookup
 
 try:
-	import pwdholder
+	import backend
+	import session
 except ImportError as e:
 	# Probably running under Apache, which screws with import dirs
 	sys.path[0] = os.path.dirname(__file__)
-	import pwdholder
+	import backend
+	import session
 
 class MainPage:
-	def __init__(self, save_location='.'):
-		# Directory location for password files
-		if not os.path.isdir(save_location):
-			raise ValueError('Save location is not directory or does not exist')
-			
-		self.__save_location = save_location
-		self.session_length = 60 * 60 * 24 * 7
-		self.max_sessions = 10
+	def __init__(self, conn_str):
+		"""
+		Sets up database connection and initializes basic settings
+		"""
+		self.__pwdb = backend.PasswordHolder(conn_str)
+		self.__db = self.__pwdb.get_db()
 		
-		# Logged-in user tracking
-		self.__sessions = {}
-		self.__users = {}
+		# Default settings for sessions
+		self.__default_settings = {'server_enc' : True}
 		
 		# Save template lookup info
 		self.__lookup = TemplateLookup(directories=[os.path.join(os.path.dirname(__file__), 'templates')])
@@ -38,215 +38,182 @@ class MainPage:
 	def index(self):
 		"""
 		Loads up an HTML5 page that uses the JSON calls to handle everything
-		"""
+		"""		
 		template = self.__lookup.get_template('index.html')
 		return template.render()
 	
 	@cherrypy.expose
 	def login(self, user, pw):
 		"""
-		Logs a user in and caches their password database
+		Logs a user in and establishes their session
 		"""
-		# Get teh user
+		sess = session.Session(self.__db)
+		
+		# Get the user
 		try:
-			pw_holder = self.__get_user(user, pw)
-		except ValueError as e:
-			return self.__send_json(success=False, message='Invalid username/password')
-		except pwdholder.PwdFileError as e:
+			user_id, enc_key = self.__pwdb.login(user, pw)
+		except (ValueError, backend.PwdError):
 			return self.__send_json(success=False, message='Invalid username/password')
 		
-		# Take this opportunity to expire old sessions
-		self.expire_sessions(time.time() - self.session_length)
-		
-		# Create unused session ID
-		while True:
-			sid = binascii.hexlify(os.urandom(32)).decode()
-			if sid not in self.__sessions:
-				break
-		
-		# Was this user already logged in? If they are, then continue to use that object,
-		# just associate it with the new session as well
-		if user in self.__users:
-			# Has this user exceeded the maximum number of active sessions?
-			pw_holder, count = self.__users[user]
-			if count >= 10:
-				# They have! Remove their oldest session
-				oldest_age = None
-				oldest_sid = None
-				for sid in self.__sessions:
-					session = self.__sessions[sid]
-					if session[1] == user and (oldest_age == None or oldest_age > session[2]):
-						# Found a new oldest
-						oldest_age = session[2]
-						oldest_sid = sid
-				
-				# And drop it
-				self.remove_session(oldest_sid)
-				count = count - 1
-				
-			# Insert their new session
-			self.__users[user] = (pw_holder, count + 1)
-		else:
-			# They weren't, so save this new db to the user's lookup
-			self.__users[user] = (pw_holder, 1)
-		
-		# Save to cache with the start time of the session
-		# Start time allows us to timeout sessions
-		self.__sessions[sid] = [pw_holder, user, time.time()]
+		# Save session settings
+		# If server_enc is True, we do encryption and decryption. Otherwise we assume
+		# the client will handle it
+		for key in self.__default_settings:
+			sess.set(key, self.__default_settings[key])
+		sess.set('user_id', user_id)
 		
 		# Yeah!
-		return self.__send_json(success=True, sid=sid)
+		return self.__send_json(success=True, enc_key=binascii.hexlify(enc_key).decode())
 	
 	@cherrypy.expose
-	def logout(self, sid):
+	def logout(self):
 		"""
 		Removes an active session. Only drops the user's database from
 		cache if it was the last session for that user
 		"""
-		self.remove_session(sid)
-		
-		# Take this opportunity to expire old sessions
-		self.expire_sessions(time.time() - self.session_length)
+		# Kill session
+		sess = session.Session(self.__db)
+		sess.expire()
 		
 		# Success
 		return self.__send_json(success=True, message='Logged Out')
 	
 	@cherrypy.expose
-	def reload_passwords(self, sid):
+	def encryption_mode(self, server_enc=None, client_enc=None):
 		"""
-		Forces cache to refresh from disk
+		Sets the encryption mode of the current session and/or returns
+		the current setting. If server_enc is given, encryption of passwords
+		occurs on the server side. If client_enc is given, server assumes client
+		is encrypting. If nothing is given, current setting is returned.
 		"""
-		try:
-			pw_holder = self.__sessions[sid][0]
-		except KeyError as e:
+		sess = self.__check_login()
+		if sess is None:
 			return self.__send_json(success=False, message='Your session has expired')
 		
+		# Set
+		if client_enc is not None:
+			sess.set('server_enc', False)
+		elif server_enc is not None:
+			sess.set('server_enc', True)
 		
-		pw_holder.reload_passwords()
-		
-		return self.__send_json(success=False, message='Passwords reloaded')
+		# Get
+		return self.__send_json(success=True, server_enc=sess.get('server_enc'))
 	
 	@cherrypy.expose
-	def save_passwords(self, sid):
+	def get_password(self, site, enc_key=None):
 		"""
-		Forces cache to flush to disk
+		Retrieves a password from database for a user
 		"""
-		try:
-			pw_holder = self.__sessions[sid][0]
-		except KeyError as e:
+		sess = self.__check_login()
+		if sess is None:
 			return self.__send_json(success=False, message='Your session has expired')
-			
-		pw_holder.save_passwords()
 		
-		return self.__send_json(success=False, message='Passwords saved')
-		
-	@cherrypy.expose
-	def get_password(self, sid, site):
-		"""
-		Retrieves a password from a user's database
-		"""
-		try:
-			pw_holder = self.__sessions[sid][0]
-		except KeyError as e:
-			return self.__send_json(success=False, message='Your session has expired')
-			
 		# Pull the info and send to user
-		result = pw_holder.get_password(site)
-		
-		if result is not None:
-			return self.__send_json(success=True, site=site, site_user=result[0], site_pw=result[1])
-		else:
-			# Not Found
+		result = self.__pwdb.get_password(sess.get('user_id'), site)
+		if result is None:
 			return self.__send_json(success=False, message='No password stored for site')
-			
+		
+		user, pw = result
+		
+		# Decrypt for them?
+		if sess.get('server_enc'):
+			if enc_key is not None:
+				pw = self.__decrypt(enc_key, pw)
+			else:
+				return self.__send_json(success=False, message='Session using server-side encryption, no encryption key given')
+		
+		# Send
+		return self.__send_json(success=True, site=site, site_user=user, site_pw=pw)
+	
 	@cherrypy.expose
-	def set_password(self, sid, site, site_user, site_pw):
+	def set_password(self, site, site_user, site_pw, enc_key=None):
 		"""
 		Sets/resets a password for a site
 		"""
-		try:
-			pw_holder = self.__sessions[sid][0]
-		except KeyError as e:
+		sess = self.__check_login()
+		if sess is None:
 			return self.__send_json(success=False, message='Your session has expired')
-			
+		
+		# Encrypt for them?
+		if sess.get('server_enc'):
+			if enc_key is not None:
+				site_pw = self.__encrypt(enc_key, site_pw)
+			else:
+				return self.__send_json(success=False, message='Session using server-side encryption, no encryption key given')
+		
 		# Set password and force a write
-		pw_holder.set_password(site, site_user, site_pw)
-		pw_holder.save_passwords()
+		self.__pwdb.set_password(sess.get('user_id'), site, site_user, site_pw)
 		
 		# Yeah!
 		return self.__send_json(success=True, message='New password saved')
 	
 	@cherrypy.expose
-	def who_am_i(self, sid):
+	def who_am_i(self):
 		"""
 		Lets a client retrieve the user name of the session they have
 		"""
-		try:
-			user = self.__sessions[sid][1]
-		except KeyError as e:
+		sess = self.__check_login()
+		if sess is None:
 			return self.__send_json(success=False, message='Your session has expired')
 		
-		return self.__send_json(success=True, username=user)
+		user = self.__pwdb.get_user_info(sess.get('user_id'))
+		if user is not None:
+			return self.__send_json(success=True, username=user)
+		else:
+			return self.__send_json(success=False, message='User ID not found')
 	
 	@cherrypy.expose
-	def generate_password(self, min_len=12, max_len=25, extra_chars='', session_id=None):
+	def generate_password(self, min_len=12, max_len=25, extra_chars=''):
 		"""
 		Simply returns a random password matching the
 		requirements specified. Numbers and letters are
 		always assumed, extra characters can be given. 
 		session_id may be given but is ignored.
 		"""
-		charset = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
-		charset += extra_chars
+		# Permitted characters
+		charset = string.ascii_letters + string.digits + extra_chars
 		
+		# Length
 		min_len = int(min_len)
 		max_len = int(max_len)
 		if min_len < max_len:
 			length = random.randrange(min_len, max_len)
 		else:
 			length = min_len
-				
+		
+		# Generate
 		pw = ''.join([random.choice(charset) for i in range(length)])
 		
 		# Return to user
 		return self.__send_json(success=True, password=pw)
 	
-	@cherrypy.expose
-	def path(self):
-		return str(sys.path)
-
-	def expire_sessions(self, oldest_time):
+	def __check_login(self, sess=None):
 		"""
-		Expires sessions older than the given time
+		Ensures the current user is logged in. Returns current
+		session if they are, None otherwise
 		"""
-		for sid in list(self.__sessions.keys()):
-			if self.__sessions[sid][2] < oldest_time:
-				self.remove_session(sid)
-	
-	def remove_session(self, sid):
-		"""
-		Removes the given session
-		"""
+		# Create session if needed
+		if sess is None:
+			sess = session.Session(self.__db)
+		
+		# Does it have values?
 		try:
-			# Pull out session data and invalidate it
-			pw_holder, user, start_time = self.__sessions[sid]
-			del(self.__sessions[sid])
-		
-			# Ensure db is saved
-			pw_holder.save_passwords()
-		
-			# Decrement and possibly remove user cache
-			pw_holder, count = self.__users[user]
-			if count > 1:
-				self.__users[user] = (pw_holder, count - 1)
-			else:
-				del(self.__users[user])
-			
-			return True
-			
+			sess.get('user_id')			
+			return sess
 		except KeyError as e:
-			# Likely an invalid session, ignore and show normal success
-			return False
+			return None
+	
+	def __encrypt(self, key, data):
+		"""
+		Encrypts given data using hex version of encryption key
+		"""
+		return self.__pwdb.encrypt(binascii.unhexlify(key.encode()), data)
+		
+	def __decrypt(self, key, data):
+		"""
+		Decrypts given data using hex version of encryption key
+		"""
+		return self.__pwdb.decrypt(binascii.unhexlify(key.encode()), data)
 	
 	def __send_json(self, **kwargs):
 		"""
@@ -254,40 +221,7 @@ class MainPage:
 		appropriately. The caller still must return it to cherrypy though
 		"""
 		cherrypy.response.headers["Content-Type"] = "application/json"
-		return json.dumps(kwargs, sort_keys=True, indent=4).encode()
-	
-	def __get_user(self, user, pw):
-		"""
-		Opens a password file for the given user
-		"""
-		# Valid user name, character wise?
-		if re.match('[a-zA-Z0-9_]+', user) is None:
-			# Failed
-			raise ValueError('Invalid user name')
-		
-		# Attempt to log the user in
-		pwdb_loc = os.path.join(self.__save_location, user + '.pwdb')
-		if not self.__isChildOf(self.__save_location, pwdb_loc):
-			raise ValueError('Directory traversal possible')
-	
-		# Try to open
-		return pwdholder.PasswordHolder(pwdb_loc, master_pw=pw, new_db=False)
-
-	def __isChildOf(self, parent_dir, child_path):
-		"""
-		Checks if the given path is a child of the parent. Returns
-		True if it is, False otherwise
-		"""
-		if not os.path.isdir(parent_dir):
-			raise ValueError('Only directories may be checked')
-			
-		parent_dir = os.path.abspath(parent_dir)
-		child_path = os.path.abspath(child_path)
-		
-		if os.path.commonprefix([parent_dir, child_path]) == parent_dir:
-			return True
-		else:	
-			return False
+		return json.dumps(kwargs).encode()
 
 # WSGI
 def application(environ, start_response):
@@ -300,7 +234,7 @@ def application(environ, start_response):
 	mod_rewrite
 	"""
 	cherrypy.config.update(environ['configuration'])
-	cherrypy.tree.mount(MainPage('/var/password_store'), script_name=environ['SCRIPT_NAME'], config=environ['configuration'])
+	cherrypy.tree.mount(MainPage(cherrypy.config['pwdb.connection']), script_name=environ['SCRIPT_NAME'], config=environ['configuration'])
 	return cherrypy.tree(environ, start_response)
 
 # Standalone
@@ -309,7 +243,7 @@ def main(argv=None):
 	Run password holder as a standalone cherrypy app
 	"""
 	cherrypy.config.update('prod.conf')
-	cherrypy.tree.mount(MainPage('/var/password_store/'), '/', 'prod.conf')
+	cherrypy.tree.mount(MainPage(cherrypy.config['pwdb.connection']), '/', 'prod.conf')
 	cherrypy.engine.start()
 	cherrypy.engine.block()
 	return 0
