@@ -6,7 +6,8 @@
 	<meta name="viewport" content="width=device-width, initial-scale=1"> 
 	
 	<link rel="stylesheet" href="http://code.jquery.com/mobile/latest/jquery.mobile.min.css" />
-	<script src="http://code.jquery.com/jquery.js"></script>
+
+	<script src="https://ajax.googleapis.com/ajax/libs/jquery/1/jquery.min.js"></script>
 	<script src="http://code.jquery.com/mobile/latest/jquery.mobile.js"></script>
 
 	<script src="static/pwdholder.js"></script>
@@ -37,6 +38,11 @@
 							$("#site_url_get").val($("#site_url_set").val());
 							$("#get_form").submit();
 							$.mobile.changePage("#get_password", { reverse: true });
+							
+							// Clear old set form
+							$("#site_url_set").val('');
+							$("#site_user_set").val('');
+							$("#site_pw_set").val('');
 						}
 						else
 							alert(data.message); // TBD: prettier
@@ -45,6 +51,14 @@
 			});
 	
 			$("#get_form").submit(function() {
+				// Clear get form
+				$("#site_user_get_result").val('');
+				$("#site_pw_get_result").val('');
+				
+				// Don't bother if there's nothing to search for
+				if($("#site_url_get").val() == '')
+					return false;
+				
 				PwdHolder.get(
 					$("#site_url_get").val(),
 					function(success, data) {
@@ -53,7 +67,7 @@
 							$("#site_pw_get_result").val(data.site_pw);
 						}
 						else {
-							alert(data.message); // TBD: prettier
+							alert('No password found');
 						}
 					});
 				return false;

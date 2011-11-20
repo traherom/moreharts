@@ -5,26 +5,26 @@ var PwdHolder = function() {
 	var baseurl = "";
 	
 	// Status info
-	var sid = null;
+	var enc_key = null;
 	
 	// Public functions
 	return {
 		checkLogin: function(callback) {
-			// Checks if we (a) have a stored session, (b) if that stored session
-			// is valid still, and (c) who the session is for
-			if(sid == null) {
-				sid = window["localStorage"]["sid"]
-				if(sid == null) {
-					callback(false, "No session stored");
-					return;
-				}
+			// Do we actually have an encyrption key sitting around?
+			if(enc_key == null && window["localStorage"]["enc_key"] != null)
+				enc_key = window["localStorage"]["enc_key"]
+				
+			if(enc_key == null) {
+				// Well we don't have a key any more, so we can't do anything
+				// Have to get the user's password to produce the key
+				callback(false, 'No encryption key available');
 			}
 			
 			// Valid still?
 			$.ajax({
 				url: "who_am_i",
-				data: {sid: sid},
 				success: function(data) {
+					// Inform caller
 					callback(data.success, data);
 				}
 			});
@@ -38,29 +38,28 @@ var PwdHolder = function() {
 				type: "GET",
 				success: function(data) {
 					if(data.success) {
-						sid = data.sid;
+						enc_key = data.enc_key;
 						callback(true, data);
 					}
 					else {
-						sid = null;
+						enc_key = null;
 						callback(false, data);
 					}
 					
 					// Save to permanent store
-					window["localStorage"]["sid"] = sid;
+					window["localStorage"]["enc_key"] = enc_key;
 				}
 			});
 		},
 		
 		logout: function(callback) {
 			// Remove local store
-			window["localStorage"].removeItem("sid");
+			window["localStorage"].removeItem("enc_key");
 			
 			$.ajax({
 				url: "logout",
-				data: {sid: sid},
 				success: function(data) {
-					sid = null;
+					enc_key = null;
 					callback(data.success, data);
 				}
 			});
@@ -71,7 +70,7 @@ var PwdHolder = function() {
 			$.ajax({
 				url: "set_password",
 				data: {
-					sid: sid,
+					enc_key: enc_key,
 					site: site_url,
 					site_user: site_user,
 					site_pw: site_pw
@@ -88,7 +87,7 @@ var PwdHolder = function() {
 			$.ajax({
 				url: "get_password",
 				data: {
-					sid: sid,
+					enc_key: enc_key,
 					site: site_url
 				},
 				type: "GET",
