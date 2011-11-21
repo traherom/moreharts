@@ -16,7 +16,7 @@ class Session:
 	improper "self.get_db()" call... in a class method, where self doesn't
 	exist.
 	"""
-	def __init__(self, db, cookie_name='session', path='/', age_limit=604800, secure=False):
+	def __init__(self, db, cookie_name='session', path='/', age_limit=604800, secure=True):
 		"""
 		Open existing session if the user has a cookie or
 		set new cookie if they do not have one yet
