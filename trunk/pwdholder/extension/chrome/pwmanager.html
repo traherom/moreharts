@@ -5,8 +5,21 @@
 // Settings for holder
 PwdHolder.setbase("https://www.moreharts.com/pw/");
 
+// Hack, temp login
+PwdHolder.checkLogin(function(s, data) {
+	if(!s) {
+		console.log("Logging in");
+		PwdHolder.login("traherom", "n1jzw34", function(s, data) {
+			console.log(data.message);
+		});
+	}
+	else {
+		console.log("Already logged in as " + data.username);
+	}
+});
+
 // Handle requests from password searcher
-chrome.extension.onRequest.addListener(function(request, sender, sendResponse) {
+chrome.extension.onRequest.addListener(function (request, sender, sendResponse) {
 	console.log("Request type: " + request.type + " from " + sender.tab.url);
 	
 	// Type

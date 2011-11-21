@@ -1,32 +1,37 @@
 // Check for password fields and tell manager about each one
-var cache = null;
-$("input[type=password]").each(function(index, pwField) {
-	// Get passwords if this this is the first one
-	if(cache == null) {
-		console.log("Requesting password");
-		chrome.extension.sendRequest({type: "get_pw"}, function(response) {
-			if(response.success) {
-				console.log("Password received");
-				cache = {user: response.site_user, pw: response.site_pw};
-			}
-			else {
-				console.log("No password available");
-				cache = false;
-			}
-		});
-	}
-	
-	// Fill in fields if there's a password available
-	if(cache) {
-		// Find related user field
-		// TBD
-		
-		// And obviously fill in password
-		pwField.val(cache.pw);
-	}
-	else {
-		// No point in continuing to fill password fields, we don't
-		// have any info
-		return false;
-	}
-});
+var fields = $("input[type=password]");
+if(fields.size() > 0) {
+	console.log("Requesting password");
+	chrome.extension.sendRequest({type: "get_pw"}, function(response) {
+		if(response.success) {
+			console.log("Password received");
+			
+			fields.each(function(index, el) {
+				pwField = $(el);
+				
+				// Fill password
+				pwField.val(response.site_pw);
+			
+				// Find user and fill that too
+				// Recursively go up a parent and look for text input until we find one
+				function searchUpDOM(node) {
+					inputs = node.find("input[type=text]");
+					if(inputs.size() > 0) {
+						// Fill
+						inputs.each(function(index, el) {
+							$(el).val(response.site_user);
+						});
+					}
+					else {
+						// Keep looking
+						searchUpDOM(node.parent());
+					}
+				}
+				searchUpDOM(pwField.parent());
+			});
+		}
+		else
+			console.log("No password available");
+	});
+}
+
