@@ -1,0 +1,11 @@
+{
+  "name": "PwdHolder",
+  "version": "1.0",
+  "description": "Connects to moreharts.com password holder",
+  "browser_action": {
+    "default_icon": "icon.png"
+  },
+  "permissions": [
+    "http://api.flickr.com/"
+  ]
+}
