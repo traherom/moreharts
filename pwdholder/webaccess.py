@@ -8,8 +8,6 @@ import binascii
 import time
 import string
 import json
-from mako.template import Template
-from mako.lookup import TemplateLookup
 
 try:
 	import backend
@@ -30,26 +28,13 @@ class MainPage:
 		
 		# Default settings for sessions
 		self.__default_settings = {'server_enc' : True}
-		
-		# Save template lookup info
-		self.__lookup = TemplateLookup(directories=[os.path.join(os.path.dirname(__file__), 'templates')])
 
 	@cherrypy.expose
 	def index(self):
 		"""
 		Loads up an HTML5 page that uses the JSON calls to handle everything
 		"""		
-		template = self.__lookup.get_template('index.html')
-		return template.render()
-	
-	@cherrypy.expose
-	def pwdholder_js(self):
-		"""
-		Client-side handler for AJAX requests and such. May also be 
-		accessible through /static/pwdholder.js, but that can be hard
-		to configure correctly.
-		"""
-		f = open('static/pwdholder.js')
+		f = open(os.path.join(os.path.dirname(__file__), 'static/index.html'), 'rb')
 		return f.read()
 	
 	@cherrypy.expose
