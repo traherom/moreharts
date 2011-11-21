@@ -1,0 +1,32 @@
+<html>
+<script src="jquery.min.js"></script>
+<script src="pwdholder.js"></script>
+<script>
+// Handle requests from password searcher
+chrome.extension.onRequest.addListener(function(request, sender, sendResponse) {
+	console.log("Request type: " + request.type + " from " + sender.tab.url);
+	
+	// Type
+	if(request.type == "get_pw") {
+		PwdHolder.get(sender.tab.url, function(s, data) {
+			sendResponse(data);
+		});
+	}
+	else if(request.type == "set_pw") {
+		PwdHolder.set(sender.tab.url, request.pw, request.user, function(s, data) {
+			sendResponse(data);
+		});
+	}
+	else if(request.type == "generate") {
+		PwdHolder.generate(request.min_len, request.max_len, request.extra_chars, function(s, data) {
+			sendResponse(data);
+		});
+	}
+	else {
+		// You suck, sir
+		console.log("Invalid request type " + request.type);
+		sendResponse({success: false});
+	}
+});
+</script>
+</html>

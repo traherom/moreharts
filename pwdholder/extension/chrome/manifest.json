@@ -1,11 +1,16 @@
 {
-  "name": "PwdHolder",
-  "version": "1.0",
-  "description": "Connects to moreharts.com password holder",
-  "browser_action": {
-    "default_icon": "icon.png"
-  },
-  "permissions": [
-    "http://api.flickr.com/"
-  ]
+	"name": "PwdHolder",
+	"version": "1.0",
+	"description": "Connects to moreharts.com password holder",
+	"background_page": "pwmanager.html",
+	"content_scripts": [
+		{
+			"matches": ["http://*/*", "https://*/*", "file://*"],
+			"js": ["jquery.min.js", "pwfinder.js"],
+			"all_frames": true
+		}
+	],
+	"permissions": [
+		"https://www.moreharts.com/pw/*"
+	]
 }
