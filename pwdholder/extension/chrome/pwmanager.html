@@ -2,6 +2,9 @@
 <script src="jquery.min.js"></script>
 <script src="pwdholder.js"></script>
 <script>
+// Settings for holder
+PwdHolder.setbase("https://www.moreharts.com/pw/");
+
 // Handle requests from password searcher
 chrome.extension.onRequest.addListener(function(request, sender, sendResponse) {
 	console.log("Request type: " + request.type + " from " + sender.tab.url);
