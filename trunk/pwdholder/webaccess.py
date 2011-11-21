@@ -43,11 +43,21 @@ class MainPage:
 		return template.render()
 	
 	@cherrypy.expose
+	def pwdholder_js(self):
+		"""
+		Client-side handler for AJAX requests and such. May also be 
+		accessible through /static/pwdholder.js, but that can be hard
+		to configure correctly.
+		"""
+		f = open('static/pwdholder.js')
+		return f.read()
+	
+	@cherrypy.expose
 	def login(self, user, pw):
 		"""
 		Logs a user in and establishes their session
 		"""
-		sess = session.Session(self.__db)
+		sess = session.Session(self.__db, secure=True)
 		
 		# Get the user
 		try:
