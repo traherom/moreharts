@@ -22,7 +22,7 @@ var PwdHolder = function() {
 			
 			// Valid still?
 			$.ajax({
-				url: "who_am_i",
+				url: baseurl + "who_am_i",
 				success: function(data) {
 					// Inform caller
 					callback(data.success, data);
@@ -33,7 +33,7 @@ var PwdHolder = function() {
 		login: function(user, pw, callback) {
 			// Attempt to get session from server
 			$.ajax({
-				url: "login",
+				url: baseurl + "login",
 				data: {user: user, pw: pw},
 				type: "GET",
 				success: function(data) {
@@ -57,7 +57,7 @@ var PwdHolder = function() {
 			window["localStorage"].removeItem("enc_key");
 			
 			$.ajax({
-				url: "logout",
+				url: baseurl + "logout",
 				success: function(data) {
 					enc_key = null;
 					callback(data.success, data);
@@ -68,7 +68,7 @@ var PwdHolder = function() {
 		set: function(site_url, site_user, site_pw, callback) {
 			// Set password for given site
 			$.ajax({
-				url: "set_password",
+				url: baseurl + "set_password",
 				data: {
 					enc_key: enc_key,
 					site: site_url,
@@ -85,7 +85,7 @@ var PwdHolder = function() {
 		get: function(site_url, callback) {
 			// Gets the password for given site
 			$.ajax({
-				url: "get_password",
+				url: baseurl + "get_password",
 				data: {
 					enc_key: enc_key,
 					site: site_url
@@ -99,7 +99,7 @@ var PwdHolder = function() {
 		
 		generate: function(min_len, max_len, extra_chars, callback) {
 			$.ajax({
-				url: "generate_password",
+				url: baseurl + "generate_password",
 				data: {
 					min_len: min_len,
 					max_len: max_len,
@@ -109,6 +109,10 @@ var PwdHolder = function() {
 					callback(data.success, data);
 				}
 			});
+		},
+		
+		setbase: function(url_base) {
+			baseurl = url_base
 		},
 	}
 }();
