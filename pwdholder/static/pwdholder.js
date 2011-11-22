@@ -15,6 +15,8 @@ var PwdHolder = function() {
 				enc_key = window["localStorage"]["enc_key"]
 				
 			if(enc_key == null) {
+				console.log("No encryption key available, need new login");
+				
 				// Well we don't have a key any more, so we can't do anything
 				// Have to get the user's password to produce the key
 				callback(false, 'No encryption key available');

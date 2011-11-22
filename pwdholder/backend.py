@@ -8,6 +8,7 @@ import io
 import threading
 import hashlib
 import binascii
+import re
 from Crypto.Cipher import AES
 import postgresql
 
@@ -109,6 +110,18 @@ class PasswordHolder:
 		aes = AES.new(key, self.AES_MODE)
 		return aes.decrypt(data).decode()
 	
+	def __url_reduce(self, full_url):
+		"""
+		Reduces the given URL to something relatively consistent
+		for a given site. IE, usually the domain. If it can't for
+		some reason, the full url without query string will be returned.
+		"""
+		m = re.match("^(https?://[^/]*).*$|^(file://[^?]*)(?:\?.*)?$", full_url)
+		if m is not None:
+			return m.group(1)
+		else:
+			return full_url
+	
 	def get_password(self, user_id, site):
 		"""
 		Fetches tuple of the user name and password for the
@@ -116,7 +129,7 @@ class PasswordHolder:
 		Return None if there is no saved password for it
 		"""
 		getpass = self.__db.prepare('SELECT site_user, password FROM password WHERE user_id=$1 AND site=$2')
-		row = getpass.first(user_id, site)
+		row = getpass.first(user_id, self.__url_reduce(site))
 		if row is not None:
 			return (row['site_user'], row['password'])
 		else:
@@ -127,10 +140,10 @@ class PasswordHolder:
 		Saves the given password to database
 		"""
 		update = self.__db.prepare('UPDATE password SET site_user=$3, password=$4 WHERE site=$2 AND user_id=$1')
-		if not update.first(user_id, site, site_user, site_hashed_pw):
+		if not update.first(user_id, self.__url_reduce(site), site_user, site_hashed_pw):
 			# Update failed, must not have already been in database
 			insert = self.__db.prepare('INSERT INTO password (user_id, site, site_user, password) VALUES ($1, $2, $3, $4)')
-			if not insert.first(user_id, site, site_user, site_hashed_pw):
+			if not insert.first(user_id, self.__url_reduce(site), site_user, site_hashed_pw):
 				# This failed too. How sad
 				return False
 		
@@ -145,3 +158,4 @@ class PwdError(Exception):
 	
 	def __str__(self):
 		return self.value
+
