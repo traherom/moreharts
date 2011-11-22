@@ -2,14 +2,14 @@ all: unpacked
 
 crx: packed
 packed: pwdholder.crx
-pwdholder.crx: clean unpacked
+pwdholder.crx: unpacked
 	cp ~/Dropbox/conf/pwdholder.pem ..
-	google-chrome --pack-extension=. --pack-extension-key=../pwdholder.pem
+	cd .. && google-chrome --pack-extension=chrome --pack-extension-key=pwdholder.pem --no-message-box
 	rm ../pwdholder.pem
 	mv ../chrome.crx pwdholder.crx
-
+	
 clean:
-	rm -f jquery.min.js pwdholder.js pwdholder.crx
+	rm -f jquery.min.js pwdholder.js *.crx *.pem ../*.crx
 
 unpacked: jquery.min.js pwdholder.js
 
