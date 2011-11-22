@@ -116,7 +116,7 @@ class PasswordHolder:
 		for a given site. IE, usually the domain. If it can't for
 		some reason, the full url without query string will be returned.
 		"""
-		m = re.match("^(https?://[^/]*).*$|^(file://[^?]*)(?:\?.*)?$", full_url)
+		m = re.match("^https?://([^/]*).*|(file://[^?]*)(?:\?.*)?$", full_url)
 		if m is not None:
 			return m.group(1)
 		else:
