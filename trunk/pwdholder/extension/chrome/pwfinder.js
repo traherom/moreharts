@@ -1,9 +1,19 @@
 // Check for password fields and tell manager about each one
+// Cache to detect a password change for saving
+var pwCache = new Array();
+
+// Find password fields
 var fields = $("input[type=password]");
 if(fields.size() > 0) {
+
+	// Get password
 	console.log("Requesting password");
 	chrome.extension.sendRequest({type: "get_pw"}, function(response) {
 		if(response.success) {
+			// Save cache
+			pwCache[0] = {user: response.site_user, pw: response.site_pw};
+		
+			// Yeah, fill each password field
 			console.log("Password received");
 			
 			fields.each(function(index, el) {
@@ -32,6 +42,19 @@ if(fields.size() > 0) {
 		}
 		else
 			console.log("No password available");
+	});
+	
+	// Watch for changes to username/password
+	fields.closest("form").bind("submit", function() {
+		form = $(this);
+		chrome.extension.sendRequest({
+				type: "set_pw",
+				user: form.find("input[type=text]").val(),
+				pw: form.find("input[type=password]").val(),
+			},
+			function(response) {
+			
+		});
 	});
 }
 

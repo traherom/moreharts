@@ -28,6 +28,10 @@ var PwdHolder = function() {
 				success: function(data) {
 					// Inform caller
 					callback(data.success, data);
+				},
+				failure: function(xhr, status) {
+					// Failed...
+					callback(false, {message: status});
 				}
 			});
 		},
@@ -50,6 +54,10 @@ var PwdHolder = function() {
 					
 					// Save to permanent store
 					window["localStorage"]["enc_key"] = enc_key;
+				},
+				failure: function(xhr, status) {
+					// Failed...
+					callback(false, {message: status});
 				}
 			});
 		},
@@ -63,6 +71,10 @@ var PwdHolder = function() {
 				success: function(data) {
 					enc_key = null;
 					callback(data.success, data);
+				},
+				failure: function(xhr, status) {
+					// Failed...
+					callback(false, {message: status});
 				}
 			});
 		},
@@ -77,9 +89,12 @@ var PwdHolder = function() {
 					site_user: site_user,
 					site_pw: site_pw
 				},
-				type: "GET",
 				success: function(data) {
 					callback(data.success, data);
+				},
+				failure: function(xhr, status) {
+					// Failed...
+					callback(false, {message: status});
 				}
 			});
 		},
@@ -92,9 +107,12 @@ var PwdHolder = function() {
 					enc_key: enc_key,
 					site: site_url
 				},
-				type: "GET",
 				success: function(data) {
 					callback(data.success, data);
+				},
+				failure: function(xhr, status) {
+					// Failed...
+					callback(false, {message: status});
 				}
 			});
 		},
@@ -109,6 +127,10 @@ var PwdHolder = function() {
 				},
 				success: function(data) {
 					callback(data.success, data);
+				},
+				failure: function(xhr, status) {
+					// Failed...
+					callback(false, {message: status});
 				}
 			});
 		},

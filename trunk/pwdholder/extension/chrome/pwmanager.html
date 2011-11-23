@@ -29,9 +29,12 @@ chrome.extension.onRequest.addListener(function (request, sender, sendResponse) 
 		});
 	}
 	else if(request.type == "set_pw") {
-		PwdHolder.set(sender.tab.url, request.pw, request.user, function(s, data) {
-			sendResponse(data);
-		});
+		console.log("Possibly saving password for " + request.user);
+		if(confirm("Do you want to save this password?")) {
+			PwdHolder.set(sender.tab.url, request.pw, request.user, function(s, data) {
+				sendResponse(data);
+			});
+		}
 	}
 	else if(request.type == "generate") {
 		PwdHolder.generate(request.min_len, request.max_len, request.extra_chars, function(s, data) {
