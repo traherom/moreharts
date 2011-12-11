@@ -14,20 +14,9 @@
 
 #define DEBUG 
 
-#define USE_ETH_II
-#define ETH_CHECKSUM_SIZE 4
-#define ETH_MIN_FRAME_SIZE (64 - ETH_CHECKSUM_SIZE)
-#ifdef USE_ETH_II
-	#define ETH_HEADER_SIZE 14
-	#define ETH_FRAME_TYPE_IPV4 0x0800
-	#define ETH_FRAME_TYPE_IPV6 0x86DD
-#else
-	#define ETH_HEADER_SIZE 17
-	#define ETH_SAP_IPV4 6
-	#define ETH_SAP_IPV6 6
-#endif
-#define IP_HEADER_SIZE 40
 #define MAX_MTU 2300
+#define IP_HEADER_SIZE 40
+#define ETH_MIN_FRAME_SIZE_CHECK 46
 typedef unsigned char byte;
 
 /*
@@ -106,84 +95,51 @@ void print_buf(const char *label, byte *buf, int size) {
  * Returns actual size of received packet.
  */
 int receive_packet(int sockfd, byte *buf, int buf_size) {
-	int version = 0;
-	int total_len = 0;
 	int ip_len = 0;
-	unsigned int payload_len = 0;
-	bool foundIPPacket = false;
+	int len = 0;
 
 	// Check params
 	if(!buf) {
-		fprintf(stderr, "Unable to function with null buffer\n");
+		fprintf(stderr, "Unable to read packet with null buffer\n");
 		return NULL;
 	}
-	if(buf_size < IP_HEADER_SIZE + ETH_HEADER_SIZE) {
+	if(buf_size < IP_HEADER_SIZE) {
 		fprintf(stderr, "Not enough space given for packet header, must be at least %d\n",
-			IP_HEADER_SIZE + ETH_HEADER_SIZE);
+			IP_HEADER_SIZE);
 		return NULL;
 	}
 
-	printf("------------\nPACKET\n");
-
-	// Find the next IP packet
-	printf("Waiting for IP packet...\n");
-	while(!foundIPPacket) {
-		// Get frame
-		total_len = recv(sockfd, buf, buf_size, 0);
-		if(total_len == 0)
-			return 0;
-		else if(total_len == -1)
-			return NULL;
-
-		// IP?
-		unsigned int type = 0;
-		#ifdef USE_ETH_II
-			type = buf[12] << 8;
-			type |= buf[13];
-			if(type == ETH_FRAME_TYPE_IPV4 || type == ETH_FRAME_TYPE_IPV6)
-				foundIPPacket = true;
-		#else
-			type = buf[14];
-			if(type == ETH_SAP_IPV4 || type == ETH_SAP_IPV6)
-				foundIPPacket = true;
-		#endif
-		
-		if(!foundIPPacket) {
-			// Not IP, read the rest of this one in and discard
-			// TBD
-			fprintf(stderr, ":(\n");
-		}
-
-		// It doesn't appear we receive the CRC from the OS, so no need to check that
-		print_buf("Frame contents", buf, total_len);
+	// Get frame
+	len = recv(sockfd, buf, buf_size, 0);
+	if(len == 0)
+		return 0;
+	else if(len == -1)
+		return NULL;
+	
+	// Determine the actual length of the packet, in case it's longer
+	// due to the minimum frame size. Only apply if we're a short packet
+	if(len > ETH_MIN_FRAME_SIZE_CHECK) {
+		ip_len = len;
 	}
-
-	// We're on an IP packet, chop out the link layer bits
-	ip_len = total_len - ETH_HEADER_SIZE;
-	memmove(buf, buf + ETH_HEADER_SIZE, ip_len);
-
-	// If the frame was the minimum size, then do a bit of extra work to determine
-	// the true size of the IP packet
-	if(total_len == ETH_MIN_FRAME_SIZE) {
-		// IP version?
-		version = buf[0] >> 4;
-		printf("Packet version: %d\n", version);
-
-		payload_len = 0;
+	else {
+		int version = buf[0] >> 4;
 		if(version == 4) {
-			payload_len = buf[2] << 8;
+			int payload_len = buf[2] << 8;
 			payload_len |= (unsigned int)buf[3];
 			ip_len = payload_len;
 		}
 		else if(version == 6) {
-			payload_len = buf[4] << 8;
+			int payload_len = buf[4] << 8;
 			payload_len |= (unsigned int)buf[5];
 			ip_len = IP_HEADER_SIZE + payload_len;
+		}
+		else {
+			// If this version isn't IP 4/6, then just pass it on as-is
+			ip_len = len;
 		}
 	}
 
 	// Debug print
-	printf("IP len: %d\n", ip_len);
 	print_buf("Packet contents", buf, ip_len);
 
 	// Number of actual bytes in buffer
@@ -225,8 +181,14 @@ int main(int argc, char **argv) {
 	}
 
 	printf("BEGIN\n");
-	while(true) {
-		receive_packet(sockfd, buf, MAX_MTU);
+	int cnt = 0;
+	while(cnt = receive_packet(sockfd, buf, MAX_MTU)) {
+		printf("Readable:\n");
+		for(int i = 0; i < cnt; i++) {
+			if(isalnum(buf[i]))
+				printf("%c", buf[i]);
+		}
+		printf("\n");
 	}
 	printf("END\n");
 
