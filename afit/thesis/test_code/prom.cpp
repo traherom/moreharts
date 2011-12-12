@@ -15,12 +15,20 @@
 #define DEBUG 
 
 #define MAX_MTU 2300
-#define IP_HEADER_SIZE 40
-#define ETH_MIN_FRAME_SIZE_CHECK 46
+#define IPV4_HEADER_SIZE 20
+#define IPV6_HEADER_SIZE 40
+#define ETH_MIN_FRAME_SIZE 60
+#define USE_ETHERNET_II
+#ifdef USE_ETHERNET_II
+	#define ETH_HEADER_SIZE 14
+#else
+	#define ETH_HEADER_SIZE 17
+#endif
+
 typedef unsigned char byte;
 
 /*
- * Returns a socket in monitor mode
+ * Returns a socket in promiscuous mode for the given interface
  */
 int get_promisc_socket(int iface) {
 	int sockfd = -1;
@@ -28,7 +36,7 @@ int get_promisc_socket(int iface) {
 	struct packet_mreq	mr;
 	
 	// Make socket and set to promisc
-	sockfd = socket(PF_PACKET, SOCK_DGRAM, htons(ETH_P_ALL));
+	sockfd = socket(PF_PACKET, SOCK_RAW, htons(ETH_P_ALL));
 	if(!sockfd) {
 		// Unable to open socket. We suck
 		return 0;
@@ -83,7 +91,7 @@ void print_buf(const char *label, byte *buf, int size) {
 	for(int i = 0; i < size; i++) {
 		fprintf(stderr, "%2x ", buf[i]);
 		if(i % 10 == 9)
-			fprintf(stderr, "\n[%3d]: ", i / 10 + 1);
+			fprintf(stderr, "\n[%3d]: ", (i / 10 + 1) * 10);
 	}
 	fprintf(stderr, "\n");
 	#endif
@@ -97,15 +105,16 @@ void print_buf(const char *label, byte *buf, int size) {
 int receive_packet(int sockfd, byte *buf, int buf_size) {
 	int ip_len = 0;
 	int len = 0;
+	byte *move_buf = NULL;
 
 	// Check params
 	if(!buf) {
 		fprintf(stderr, "Unable to read packet with null buffer\n");
 		return NULL;
 	}
-	if(buf_size < IP_HEADER_SIZE) {
+	if(buf_size < IPV6_HEADER_SIZE) {
 		fprintf(stderr, "Not enough space given for packet header, must be at least %d\n",
-			IP_HEADER_SIZE);
+			IPV6_HEADER_SIZE);
 		return NULL;
 	}
 
@@ -116,9 +125,13 @@ int receive_packet(int sockfd, byte *buf, int buf_size) {
 	else if(len == -1)
 		return NULL;
 	
+	// Drop out the ethernet frame
+	len -= ETH_HEADER_SIZE;
+	memmove(buf, buf + ETH_HEADER_SIZE, len);
+
 	// Determine the actual length of the packet, in case it's longer
 	// due to the minimum frame size. Only apply if we're a short packet
-	if(len > ETH_MIN_FRAME_SIZE_CHECK) {
+	if(len + ETH_HEADER_SIZE > ETH_MIN_FRAME_SIZE) {
 		ip_len = len;
 	}
 	else {
@@ -131,7 +144,7 @@ int receive_packet(int sockfd, byte *buf, int buf_size) {
 		else if(version == 6) {
 			int payload_len = buf[4] << 8;
 			payload_len |= (unsigned int)buf[5];
-			ip_len = IP_HEADER_SIZE + payload_len;
+			ip_len = IPV6_HEADER_SIZE + payload_len;
 		}
 		else {
 			// If this version isn't IP 4/6, then just pass it on as-is
@@ -140,10 +153,120 @@ int receive_packet(int sockfd, byte *buf, int buf_size) {
 	}
 
 	// Debug print
-	print_buf("Packet contents", buf, ip_len);
+	print_buf("Received Packet contents", buf, ip_len);
 
 	// Number of actual bytes in buffer
 	return ip_len;
+}
+
+/*
+ * Constructs packet and sends it out
+ */
+int send_packet(int sockfd, bool is_ipv6,
+		const byte *src_addr, const byte *dest_addr,
+		bool is_tcp_payload, const byte *payload, int payload_size) {
+	// Allocate enough space to build packet
+	byte *buf = NULL;
+	int buf_size = 0;
+	
+	if(is_ipv6)
+		buf_size = IPV6_HEADER_SIZE + payload_size;
+	else
+		buf_size = IPV4_HEADER_SIZE + payload_size;
+	
+	buf = (byte*)malloc(buf_size);
+	if(!buf) {
+		fprintf(stderr, "Unable to allocate memory to create packet\n");
+		return -1;
+	}
+
+	// Create packet based on type
+	if(is_ipv6) {
+		// IPv6
+		// Version, traffic class, QoS
+		buf[0] = 0x60;
+		buf[1] = 0x00;
+		buf[2] = 0x00;
+		buf[3] = 0x00;
+		
+		// Payload length
+		buf[4] = payload_size >> 8;
+		buf[5] = payload_size & 0xFF;
+
+		// Payload type. TBD, allow adding EHs
+		if(is_tcp_payload)
+			buf[6] = 0x06; // TCP
+		else
+			buf[6] = 0x11; // UDP
+
+		// Hop limit
+		buf[7] = 64;
+		
+		// Addresses
+		memcpy(buf + 8, src_addr, 16);
+		memcpy(buf + 24, src_addr, 16);
+		
+		// Finally, the payload itself
+		memcpy(buf + IPV6_HEADER_SIZE, payload, payload_size);
+	}
+	else {
+		// IPv4
+		// Version, Header len, TOS
+		buf[0] = 0x45;
+		buf[1] = 0x00;
+
+		// Total len
+		buf[2] = buf_size >> 8;
+		buf[3] = buf_size & 0xFF;
+
+		// Fragment ID
+		buf[4] = 0x00;
+		buf[5] = 0x00;
+
+		// Flags, fragment offset
+		buf[6] = 0xDD;
+		buf[7] = 0xDD;
+
+		// TTL
+		buf[8] = 64;
+
+		// Type
+		if(is_tcp_payload)
+			buf[9] = 0x06; // TCP
+		else
+			buf[9] = 0x11; // UDP
+
+		// Addresses
+		memcpy(buf + 12, src_addr, 4);
+		memcpy(buf + 16, dest_addr, 4);
+		
+		// Checksum... TBD
+		buf[10] = 0x00;
+		buf[11] = 0x00;
+
+		int total = 0;
+		for(byte *check_ptr = buf; check_ptr < buf + IPV4_HEADER_SIZE; check_ptr += 2) {
+			//printf("%x = %x %x\n", total, (*check_ptr << 8), *(check_ptr + 1));
+			total ^= (*check_ptr << 8) | *(check_ptr + 1);
+		}
+
+		total = ~total & 0xFFFF;
+		buf[10] = total >> 8;
+		buf[11] = total;
+		
+		// Finally, the payload itself
+		memcpy(buf + IPV4_HEADER_SIZE, payload, payload_size);
+	}
+
+	print_buf("Packet to send", buf, buf_size);
+
+	// And send
+	if(send(sockfd, buf, buf_size, 0) == -1) {
+		fprintf(stderr, "Failed to send packet (errno %d)\n", errno);
+		return -1;
+	}
+
+	return buf_size;
 }
 
 int main(int argc, char **argv) {
@@ -180,17 +303,24 @@ int main(int argc, char **argv) {
 		return 2;
 	}
 
-	printf("BEGIN\n");
+	// Look for packets and echo their readable contents back to sender
 	int cnt = 0;
+	int rcnt = 0;
+	byte *readable = (byte*)malloc(50);
+
 	while(cnt = receive_packet(sockfd, buf, MAX_MTU)) {
-		printf("Readable:\n");
+		rcnt = 0;
 		for(int i = 0; i < cnt; i++) {
-			if(isalnum(buf[i]))
-				printf("%c", buf[i]);
+			if(rcnt < 49 && isalnum(buf[i])) {
+				readable[rcnt] = buf[i];
+				rcnt++;
+			}
 		}
-		printf("\n");
+		readable[rcnt] = '\0';
+
+		//send_packet(sockfd, 0, buf + 16, buf + 12, 1, readable, rcnt);
+		//send_packet(sockfd, 0, buf + 16, buf + 12, 1, buf + IPV4_HEADER_SIZE, cnt - IPV4_HEADER_SIZE);
 	}
-	printf("END\n");
 
 	// All done
 	free(buf);
