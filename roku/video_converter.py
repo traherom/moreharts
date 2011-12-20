@@ -271,12 +271,12 @@ def main(argv=None):
 		# Destination has to be a folder if we're working from a folder
 		if not args.first_only and not os.path.isdir(args.dest):
 			print('Destination must be a directory when using a source directory and no --first-only')
-			exit()
+			return -1
 		
 		# Source and destination folders must be different
 		if os.path.abspath(args.src) == os.path.abspath(args.dest):
 			print('Source and destination directories may not be the same')
-			exit()
+			return -2
 		
 		# Work with all files in directory
 		src_list = [os.path.join(args.src, f) for f in os.listdir(args.src)]
@@ -286,6 +286,7 @@ def main(argv=None):
 		
 	# Run through each video file in the folder
 	# Keep some status info handy
+	error_count = 0
 	total_src = len(src_list)
 	total_checked = 0
 	call_counts = {}
@@ -331,6 +332,7 @@ def main(argv=None):
 						print('done')
 				except OSError as e:
 					print('\tAction failed: ' + str(e))
+					error_count += 1
 
 					# Remove, we'll never successfully convert it.
 					if args.remove_failed and os.path.exists(src):
@@ -361,6 +363,9 @@ def main(argv=None):
 	for action, utilization in call_counts.items():
 		print(action, ':', utilization[0], 'times,', round(utilization[1], 3), 'seconds')
 	print('Total:', total_checked, 'checked,', round(end_time - start_time, 3), 'seconds')
+
+	return error_count
 	
 if __name__ == '__main__':
-	main(sys.argv)
+	sys.exit(main(sys.argv))
+
