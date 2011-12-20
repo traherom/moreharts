@@ -46,6 +46,8 @@
 							$("#site_user_set").val('');
 							$("#site_pw_set").val('');
 						}
+						else if(data.login_needed)
+							$.mobile.changePage("#login");
 						else
 							alert(data.message); // TBD: prettier
 					});
@@ -68,9 +70,12 @@
 							$("#site_user_get_result").val(data.site_user);
 							$("#site_pw_get_result").val(data.site_pw);
 						}
-						else {
-							alert('No password found');
-						}
+						else if(data.login_needed)
+							$.mobile.changePage("#login");
+						else if(data.no_password)
+							alert('No password found for this site');
+						else
+							alert(data.message);
 					});
 				return false;
 			});
@@ -84,7 +89,7 @@
 						if(success)
 							$("#generate_pw_result").val(data.password);
 						else
-							$("#generate_pw_result").val(data.message);
+							alert(data.message);
 					});
 				return false;
 			});

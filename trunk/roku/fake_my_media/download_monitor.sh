@@ -21,7 +21,7 @@ while IFS= read -d $'\0' -r f; do
 	echo Copying "$f"
 	cp "$f" "$UNCONVERTED"
 	touch --date="yesterday" "$f"
-done < <(find "$COMPLETE" -name \*.avi -mmin -720 -size +50M -print0)
+done < <(find "$COMPLETE" \( -name \*.avi -o -name \*.mp4 -o -name \*.mkv \) -mmin -720 -size +50M -print0)
 	
 # Unlock for next round
 rm $LOCK_FILE

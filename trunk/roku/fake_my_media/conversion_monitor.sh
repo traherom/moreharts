@@ -31,8 +31,12 @@ while IFS= read -d $'\0' -r f; do
 	"$CONVERTER" --remove-source --remove-failed "$f" "$CONVERTED"
 
 	echo Emailing status!
-	"$MAILER" --from ryan@moreharts.com --to ryan@moreharts.com --to caitlin@moreharts.com --subject "Video conversion complete" --body "$f is now available for viewing"	
-done < <(find "$UNCONVERTED" -name \*.avi -print0)
+	if [ "$?" == "0" ] ; then
+		"$MAILER" --from ryan@moreharts.com --to ryan@moreharts.com --to caitlin@moreharts.com --subject "Video conversion complete" --body "$f is now available for viewing"	
+	else
+		"$MAILER" --from ryan@moreharts.com --to ryan@moreharts.com --to caitlin@moreharts.com --subject "Video conversion failed" --body "$f failed conversion. Please try a different download."
+	fi
+done < <(find "$UNCONVERTED" \( -name \*.avi -o -name \*.mp4 \) | sort | tr '\n' '\000')
 
 # Unlock
 rm $LOCK_FILE

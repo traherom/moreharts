@@ -7,6 +7,19 @@ var PwdHolder = function() {
 	// Status info
 	var enc_key = null;
 	
+	// AJAX setup
+	$(document).ajaxError(function(xhr, status, httpStatus) {
+		// Failed...
+		if(status == "timeout")
+			callback(false, {timeout_error: true, connection_error: true, message: "Connection timed out reaching password server"});
+		else if(status == "abort")
+			callback(false, {abort_error: true, connection_error: true, message: "Connection to password server aborted"});
+		else if(status == "parseerror")
+			callback(false, {parse_error: true, connection_error: true, message: "Response from server was invalid (" + httpStatus + ")"});
+		else
+			callback(false, {unknown_error: true, connection_error: true, message: "Unknown connection error occured"});
+	});
+	
 	// Public functions
 	return {
 		checkLogin: function(callback) {
@@ -28,10 +41,6 @@ var PwdHolder = function() {
 				success: function(data) {
 					// Inform caller
 					callback(data.success, data);
-				},
-				failure: function(xhr, status) {
-					// Failed...
-					callback(false, {message: status});
 				}
 			});
 		},
@@ -54,10 +63,6 @@ var PwdHolder = function() {
 					
 					// Save to permanent store
 					window["localStorage"]["enc_key"] = enc_key;
-				},
-				failure: function(xhr, status) {
-					// Failed...
-					callback(false, {message: status});
 				}
 			});
 		},
@@ -71,10 +76,6 @@ var PwdHolder = function() {
 				success: function(data) {
 					enc_key = null;
 					callback(data.success, data);
-				},
-				failure: function(xhr, status) {
-					// Failed...
-					callback(false, {message: status});
 				}
 			});
 		},
@@ -91,10 +92,6 @@ var PwdHolder = function() {
 				},
 				success: function(data) {
 					callback(data.success, data);
-				},
-				failure: function(xhr, status) {
-					// Failed...
-					callback(false, {message: status});
 				}
 			});
 		},
@@ -109,10 +106,6 @@ var PwdHolder = function() {
 				},
 				success: function(data) {
 					callback(data.success, data);
-				},
-				failure: function(xhr, status) {
-					// Failed...
-					callback(false, {message: status});
 				}
 			});
 		},
@@ -127,10 +120,6 @@ var PwdHolder = function() {
 				},
 				success: function(data) {
 					callback(data.success, data);
-				},
-				failure: function(xhr, status) {
-					// Failed...
-					callback(false, {message: status});
 				}
 			});
 		},
@@ -140,4 +129,3 @@ var PwdHolder = function() {
 		},
 	}
 }();
-

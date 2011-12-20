@@ -48,7 +48,7 @@ class MainPage:
 		try:
 			user_id, enc_key = self.__pwdb.login(user, pw)
 		except (ValueError, backend.PwdError):
-			return self.__send_json(success=False, message='Invalid username/password')
+			return self.__send_json(success=False, invalid_credentials=True, message='Invalid username/password')
 		
 		# Save session settings
 		# If server_enc is True, we do encryption and decryption. Otherwise we assume
@@ -83,7 +83,7 @@ class MainPage:
 		"""
 		sess = self.__check_login()
 		if sess is None:
-			return self.__send_json(success=False, message='Your session has expired')
+			return self.__send_json(success=False, login_needed=True, message='Your session has expired')
 		
 		# Set
 		if client_enc is not None:
@@ -101,12 +101,12 @@ class MainPage:
 		"""
 		sess = self.__check_login()
 		if sess is None:
-			return self.__send_json(success=False, message='Your session has expired')
+			return self.__send_json(success=False, login_needed=True, message='Your session has expired')
 		
 		# Pull the info and send to user
 		result = self.__pwdb.get_password(sess.get('user_id'), site)
 		if result is None:
-			return self.__send_json(success=False, message='No password stored for site')
+			return self.__send_json(success=False, no_password=True, message='No password stored for site')
 		
 		user, pw = result
 		
@@ -115,7 +115,7 @@ class MainPage:
 			if enc_key is not None:
 				pw = self.__decrypt(enc_key, pw)
 			else:
-				return self.__send_json(success=False, message='Session using server-side encryption, no encryption key given')
+				return self.__send_json(success=False, no_key_given=True, message='Session using server-side encryption, no encryption key given')
 		
 		# Send
 		return self.__send_json(success=True, site=site, site_user=user, site_pw=pw)
@@ -134,7 +134,7 @@ class MainPage:
 			if enc_key is not None:
 				site_pw = self.__encrypt(enc_key, site_pw)
 			else:
-				return self.__send_json(success=False, message='Session using server-side encryption, no encryption key given')
+				return self.__send_json(success=False, no_key_given=True, message='Session using server-side encryption, no encryption key given')
 		
 		# Set password and force a write
 		self.__pwdb.set_password(sess.get('user_id'), site, site_user, site_pw)
