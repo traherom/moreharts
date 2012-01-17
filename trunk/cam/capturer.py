@@ -7,6 +7,7 @@ import os
 import socket
 import time
 import opencv
+import argparse
 from opencv import highgui 
 
 def get_image(camera):
@@ -15,19 +16,19 @@ def get_image(camera):
     return opencv.adaptors.Ipl2PIL(img) 
 
 def main(argv):
-    # Seconds between images
-    delay = 3
+    parser = argparse.ArgumentParser(description='Process some integers.')
+    parser.add_argument('host', default='localhost', nargs='?', help='Server to send images to')
+    parser.add_argument('-p', '--port', default=8888, type=int, help='Server port to send images')
+    parser.add_argument('-i', '--interval', default=3, help='Number of seconds between image captures')
+    args = parser.parse_args()
     
     # Connection info for server
-    if len(argv) == 0:
-        conn_info = (argv[1], 8888)
-    else:
-        conn_info = ('127.0.0.1', 8888)
+    conn_info = (args.host, args.port)
     
     # Generate an ID for ourselves
     id = ''.join(random.choice(string.ascii_uppercase) for x in range(2))
     img_path = os.path.join('/tmp', 'temp.jpg')
-    print 'Capturer', id, 'sending to', conn_info
+    print 'Capturer', id, 'sending to', args.host + ':' + str(args.port)
     
     # Open camera and start taking pictures
     camera = highgui.cvCreateCameraCapture(0)
@@ -38,6 +39,7 @@ def main(argv):
         
         # Send to server
         try:
+            print('Sending image')
             sock = socket.create_connection(conn_info, timeout=1)
             
             sock.send(id)
@@ -51,7 +53,7 @@ def main(argv):
             print(e)
             
         # Don't overload ourselves here
-        time.sleep(delay)
+        time.sleep(args.interval)
    
     return 0
 
