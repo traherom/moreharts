@@ -3,6 +3,8 @@ import sys
 import os
 import random
 import string
+import re
+import time
 import socket
 import argparse
 
@@ -12,8 +14,11 @@ def generate_html(save_loc, capturers, interval=3):
         f.write('<meta http-equiv="refresh" content="{}">\n'.format(interval))
         f.write('</head>\n<body>\n')
         
+        time_limit = time.time() - 60
         for k in capturers:
-            f.write('<img alt="{}" src="{}" />\n'.format(k, os.path.basename(capturers[k])))
+            t, save_file = capturers[k]
+            if time_limit < t:
+                f.write('<img alt="{}" src="{}" />\n'.format(k, os.path.basename(save_file)))
         
         f.write('</body>\n</html>\n')
 
@@ -52,10 +57,15 @@ def main(argv):
         #
         # Any inconsistencies we detect will cause the connection
         # to be dropped
-        id = clientSock.recv(2)
-        if len(id) != 2:
+        id = clientSock.recv(8)
+        if len(id) != 8:
             print('ID not given, dropping')
             continue
+        if re.match('^[a-zA-Z][a-zA-Z0-9 ]{7}$', id) is None:
+            print('ID invalid, dropping')
+            continue
+        
+        id = id.strip()
         
         msg = ''
         while True:
@@ -75,18 +85,16 @@ def main(argv):
             continue
         
         # Get our data on this capturer
-        try:
-            save_file = capturers[id] 
-        except KeyError as e:
-            # Not seen before, create new entry
-            save_file = ''.join(random.choice(string.ascii_uppercase) for x in range(10))
-            save_file += '.jpg'
-            save_file = os.path.join(args.save_loc, save_file)
-            capturers[id] = save_file
+        if id in capturers:
+            # Update timestamp
+            t, save_file = capturers[id]
+            capturers[id] = (time.time(), save_file)
+        else:
+            # Regenerate HTML file with new sender
+            save_file = os.path.join(args.save_loc, id + '.jpg')
+            capturers[id] = (time.time(), save_file)
+            generate_html(args.save_loc, capturers, args.interval)
             
-            # Regenerate HTML file
-            generate_html(args.save_loc, capturers, args.save_loc)
-        
         # Save image
         with open(os.path.join(args.save_loc, save_file), 'wb') as f:
             f.write(msg)
