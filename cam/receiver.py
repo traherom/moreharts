@@ -15,7 +15,7 @@ def generate_html(save_loc, capturers):
             f.write('<img alt="')
             f.write(k)
             f.write('" src="')
-            f.write(capturers[k])
+            f.write(os.path.basename(capturers[k]))
             f.write('" />\n')
         
         f.write('</body></html>')
@@ -38,7 +38,7 @@ def main(argv):
     
     # Start listening
     listenSock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    listenSock.bind(('127.0.0.1', 8888))
+    listenSock.bind(('', 8888))
     listenSock.listen(10)
     
     while True:
@@ -83,6 +83,7 @@ def main(argv):
             # Not seen before, create new entry
             save_file = ''.join(random.choice(string.ascii_uppercase) for x in range(10))
             save_file += '.jpg'
+            save_file = os.path.join(save_loc, save_file)
             capturers[id] = save_file
             
             # Regenerate HTML file
