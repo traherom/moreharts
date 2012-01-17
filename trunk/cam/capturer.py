@@ -16,18 +16,21 @@ def get_image(camera):
     return opencv.adaptors.Ipl2PIL(img) 
 
 def main(argv):
-    parser = argparse.ArgumentParser(description='Process some integers.')
+    parser = argparse.ArgumentParser(description='Sends images from camera to server')
+    parser.add_argument('id', help='Identifier for this capturer. Limited to 8 chars')
     parser.add_argument('host', default='localhost', nargs='?', help='Server to send images to')
     parser.add_argument('-p', '--port', default=8888, type=int, help='Server port to send images')
     parser.add_argument('-i', '--interval', default=3.0, type=float, help='Number of seconds between image captures')
     args = parser.parse_args()
     
-    # Connection info for server
+    # Setting stuff
     conn_info = (args.host, args.port)
-    
-    # Generate an ID for ourselves
-    id = ''.join(random.choice(string.ascii_uppercase) for x in range(2))
     img_path = os.path.join('/tmp', 'temp.jpg')
+    
+    # Make ID exactly 8 characters
+    id = args.id[0:8]
+    id += ' ' * (8 - len(id))
+    
     print 'Capturer', id, 'sending to', args.host + ':' + str(args.port)
     
     # Open camera and start taking pictures
