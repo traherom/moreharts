@@ -4,29 +4,27 @@ import os
 import random
 import string
 import socket
+import argparse
 
-def generate_html(save_loc, capturers):
+def generate_html(save_loc, capturers, interval=3):
     with open(os.path.join(save_loc, 'index.html'), 'w') as f:
-        f.write('<html><head><title>Morehart Cams</title>')
-        f.write('<meta http-equiv="refresh" content="3">')
-        f.write('</head><body>\n')
+        f.write('<html>\n<head>\n<title>Morehart Cams</title>\n')
+        f.write('<meta http-equiv="refresh" content="{}">\n'.format(interval))
+        f.write('</head>\n<body>\n')
         
         for k in capturers:
-            f.write('<img alt="')
-            f.write(k)
-            f.write('" src="')
-            f.write(os.path.basename(capturers[k]))
-            f.write('" />\n')
+            f.write('<img alt="{}" src="{}" />\n'.format(k, os.path.basename(capturers[k])))
         
-        f.write('</body></html>')
+        f.write('</body>\n</html>\n')
 
 def main(argv):
-    if len(argv) == 2:
-       save_loc = argv[1]
-    else:
-       save_loc = '.'
+    parser = argparse.ArgumentParser(description='Receives images from capturer and saves them for an HTML page')
+    parser.add_argument('save_loc', metavar='save location', nargs='?', default='.', help='Location to save index.html and images')
+    parser.add_argument('-p', '--port', default=8888, type=int, help='Port to listen on')
+    parser.add_argument('-i', '--interval', default=3, type=int, help='Refresh interval for webpage (seconds)')
+    args = parser.parse_args()
     
-    print 'Saving to', save_loc
+    print 'Saving to', args.save_loc
     
     # Keep record of all capturer's we're getting data from
     # They'll be giving us unique IDs the first time they 
@@ -34,7 +32,7 @@ def main(argv):
     capturers = {}
     
     # Create initial (empty) HTML page
-    generate_html(save_loc, capturers)
+    generate_html(args.save_loc, capturers, args.interval)
     
     # Start listening
     listenSock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -83,14 +81,14 @@ def main(argv):
             # Not seen before, create new entry
             save_file = ''.join(random.choice(string.ascii_uppercase) for x in range(10))
             save_file += '.jpg'
-            save_file = os.path.join(save_loc, save_file)
+            save_file = os.path.join(args.save_loc, save_file)
             capturers[id] = save_file
             
             # Regenerate HTML file
-            generate_html(save_loc, capturers)
+            generate_html(args.save_loc, capturers, args.save_loc)
         
         # Save image
-        with open(os.path.join(save_loc, save_file), 'wb') as f:
+        with open(os.path.join(args.save_loc, save_file), 'wb') as f:
             f.write(msg)
             print('New image saved for ' + id)
            

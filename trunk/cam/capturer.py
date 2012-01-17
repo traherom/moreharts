@@ -19,7 +19,7 @@ def main(argv):
     parser = argparse.ArgumentParser(description='Process some integers.')
     parser.add_argument('host', default='localhost', nargs='?', help='Server to send images to')
     parser.add_argument('-p', '--port', default=8888, type=int, help='Server port to send images')
-    parser.add_argument('-i', '--interval', default=3, help='Number of seconds between image captures')
+    parser.add_argument('-i', '--interval', default=3.0, type=float, help='Number of seconds between image captures')
     args = parser.parse_args()
     
     # Connection info for server
@@ -44,7 +44,12 @@ def main(argv):
             
             sock.send(id)
             with open(img_path, 'rb') as f:
-                sock.send(f.read())
+                while True:
+                    data = f.read(1024)
+                    if data:
+                        sock.send(data)
+                    else:
+                        break
             
             sock.close()
         except socket.error as e:
