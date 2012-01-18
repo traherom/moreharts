@@ -36,15 +36,22 @@ def main(argv):
     # send us an image
     capturers = {}
     
-    # Create initial (empty) HTML page
-    generate_html(args.save_loc, capturers, args.interval)
-    
     # Start listening
     listenSock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     listenSock.bind(('', 8888))
     listenSock.listen(10)
     
+    # Expire old cameras. Make sure we refresh our HTML right off the bat
+    html_refresh_time = 0
+    
     while True:
+        # Expire old cameras
+        curr_time = time.time()
+        if html_refresh_time < curr_time:
+            print('Regenerating HTML')
+            generate_html(args.save_loc, capturers, args.interval)
+            html_refresh_time = curr_time + 60
+        
         # We're not going to both to multithread the handling here
         # The others can queue up, we know we won't have that many 
         # capturer's dumping into us at once, this ensures we don't
@@ -99,7 +106,7 @@ def main(argv):
         with open(os.path.join(args.save_loc, save_file), 'wb') as f:
             f.write(msg)
             print('New image saved for ' + id)
-           
+        
     return 0
 
 if __name__ == '__main__':
