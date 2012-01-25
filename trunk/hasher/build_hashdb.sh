@@ -1,4 +1,61 @@
 #!/bin/bash
+# Don't allow the use of uninitialized variables
+set -o nounset
+
+# Utility function to clean up the mess we make
+function clean_up_temp () {
+	if [ -e "$TMPMNT" ]
+	then
+		echo -n "Attempting to umount/remove $TMPMNT clean up... "
+		umount "$TMPMNT"
+		rmdir "$TMPMNT"
+		if [ ! -d "$TMPMNT" ]
+		then
+			echo "ok"
+		else
+			echo "failed. Please fix manually"
+			exit
+		fi
+	fi
+
+	if [ -e "$TMPEX" ]
+	then
+		echo -n "Attempting to clean up $TMPEX... "
+		rm "$TMPEX"/*.txt
+		rmdir "$TMPEX"
+		if [ ! -d "$TMPEX" ]
+		then
+			echo "ok"
+		else
+			echo "failed. Please fix manually"
+			exit
+		fi
+	fi
+}
+
+# Exit cleanly
+SQL_PROC_ID=""
+function clean_exit () {
+	echo "Cleaning up"
+	
+	# Kill background procs if needed
+	if [ "$SQL_PROC_ID" != "" ]
+	then
+		echo "Asking mysql to exit"
+		kill $SQL_PROC_ID
+		wait $SQL_PROC_ID 
+	fi
+	
+	# Clean up the temporary files we make
+	echo "Removing temporary files"
+	clean_up_temp
+	
+	# And really finish
+	trap - int term exit
+	exit
+}
+trap clean_exit int term exit
+
 DB_USER=root
 DB_PWD=test
 DB_DATABASE=hashes
@@ -32,35 +89,7 @@ else
 fi
 
 # Clean up from failed attempt?
-if [ -e "$TMPMNT" ]
-then
-	echo "Mount point $TMPMNT appears to still exist"
-	echo -n "Attempting to clean up... "
-	umount "$TMPMNT"
-	rmdir "$TMPMNT"
-	if [ ! -d "$TMPMNT" ]
-	then
-		echo "ok"
-	else
-		echo "failed. Please fix manually"
-		exit
-	fi
-fi
-
-if [ -e "$TMPEX" ]
-then
-	echo "Extract directory $TMPEX still exists"
-	echo -n "Attempting to clean up... "
-	rm "$TMPEX"/*.txt
-	rmdir "$TMPEX"
-	if [ ! -d "$TMPEX" ]
-	then
-		echo "ok"
-	else
-		echo "failed. Please fix manually"
-		exit
-	fi
-fi
+clean_up_temp
 
 # Did the user give us a file with the SHA1s for the
 # ISOs they want to use?
@@ -200,28 +229,51 @@ do
 	# Insert product data
 	echo "Inserting product codes into database"
 	echo "LOAD DATA LOCAL INFILE \"$TMPEX/NSRLProd.txt\"
-		REPLACE INTO TABLE NSRLProd
+		INTO TABLE NSRLProd
 		COLUMNS TERMINATED BY ','
 		ENCLOSED BY '\"' IGNORE 1 LINES;" | $SQL_CMD &
 	
 	function monitor_insert () {
+		# Allow mysql to be killed if needed
+		SQL_PROC_ID=$!
+
 		total_count=$1
 		insert_count=0
 		
+		# Get the length of the total count so we know how much to pad our output by
+		len_total=${#total_count}
+		backspace_str=""
+		for i in $(seq 1 `expr $len_total \* 2 + 3`)
+		do
+			backspace_str=$backspace_str"\b"
+		done
+		
+		printf "Inserted " $insert_count $total_count
 		while [ "$insert_count" != "" ]
 		do
-			echo "Inserted $insert_count / $total_count hashes"
+			printf "%${len_total}d / %${len_total}d" $insert_count $total_count
 			sleep 5
 			
 			insert_count=$($SQL_CMD -e "SHOW INNODB STATUS;" |
-				awk '{match($0, /undo log entries [0-9]+/); printf substr($0, RSTART + 17, RLENGTH - 17)}')
+				awk '{match($0, /undo log entries [0-9]+/);
+					  printf substr($0, RSTART + 17, RLENGTH - 17)}')
+					  
+			printf $backspace_str
 		done
+		
+		echo "all values                 "
+		
+		# Make sure mysql is done
+		wait
+		
+		# No need to force now
+		SQL_PROC_ID=""
 	}
 	monitor_insert `wc -l $TMPEX/NSRLProd.txt`
 	
 	echo "Inserting hashes into database. This will take a long time, be patient"
 	echo "LOAD DATA LOCAL INFILE \"$TMPEX/NSRLFile.txt\"
-			REPLACE INTO TABLE NSRLFile
+			INTO TABLE NSRLFile
 			COLUMNS TERMINATED BY ','
 			ENCLOSED BY '\"' IGNORE 1 LINES;" | $SQL_CMD &
 	monitor_insert `wc -l $TMPEX/NSRLFile.txt`
@@ -230,14 +282,4 @@ do
 	echo Completed $iso, cleaning up
 	rm -r "$TMPEX"
 done
-
-# Add indexes
-#echo "Adding indexes to database, please wait, this may take 30 minutes or more. Alsa, no progress bar"
-#echo "ALTER TABLE NSRLFile
-#		ADD CONSTRAINT UNIQUE INDEX (SHA1),
-#		ADD CONSTRAINT UNIQUE INDEX (MD5);
-#	ALTER TABLE NSRLProd
-#		ADD CONTSRAINT UNIQUE INDEX (ProductCode);" | $SQL_CMD
-
-echo "All done!"
 
