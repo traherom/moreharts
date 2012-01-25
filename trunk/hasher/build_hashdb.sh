@@ -11,6 +11,8 @@ TMPMNT="nist_iso_mount_point"
 TMPEX="nist_iso_zip_extracted"
 TMPSQLSCRIPT="nist_insert_script.sql"
 
+DB_INSERT_INCREMENT_SIZE=1000
+
 # Must be run as root
 if [ "$(whoami)" != "root" ]
 then
@@ -136,6 +138,29 @@ done
 # Restore the IFS
 IFS=$OLD_IFS
 
+# Create database
+echo "Creating database if needed"
+echo "CREATE DATABASE IF NOT EXISTS $DB_DATABASE;
+	USE $DB_DATABASE;
+	CREATE TABLE IF NOT EXISTS NSRLProd (
+		ProductCode int NOT NULL,
+		ProductName varchar(1024),
+		ProductVersion varchar(1024),
+		OpSystemCode varchar(255),
+		MfgCode varchar(100),
+		Language varchar(1024)
+	) ENGINE=innodb;
+	CREATE TABLE IF NOT EXISTS NSRLFile (
+		SHA1 char(41),
+		MD5 char(32),
+		CRC32 char(32),
+		FileName varchar(1024),
+		FileSize varchar(1024),
+		ProductCode int,
+		OpSystemCode varchar(255),
+		Specialcode varchar(255)
+	) ENGINE=innodb;" | mysql "--user=$DB_USER" "--password=$DB_PWD" -B
+		
 for iso in `ls -1 *.iso`
 do
 	# Mount
@@ -174,40 +199,54 @@ do
 		fi
 	done
 	
-	# Build SQL
-	echo Building SQL commands
-	echo "CREATE DATABASE IF NOT EXISTS $DB_DATABASE;" >"$TMPSQLSCRIPT" 
-	echo "USE $DB_DATABASE;
-		CREATE TABLE IF NOT EXISTS NSRLProd (
-			ProductCode int NOT NULL,
-			ProductName varchar(1024),
-			ProductVersion varchar(1024),
-			OpSystemCode varchar(255),
-			MfgCode varchar(100),
-			Language varchar(1024)
-		) ENGINE=innodb;
-		CREATE TABLE IF NOT EXISTS NSRLFile (
-			SHA1 char(41),
-			MD5 char(32),
-			CRC32 char(32),
-			FileName varchar(1024),
-			FileSize varchar(1024),
-			ProductCode int,
-			OpSystemCode varchar(255)
-		) ENGINE=innodb;
-		SET UNIQUE_CHECKS=0;
-		LOAD DATA LOCAL INFILE \"$TMPEX/NSRLProd.txt\"
-			REPLACE INTO TABLE NSRLProd
-			COLUMNS TERMINATED BY ','
-			ENCLOSED BY '\"' IGNORE 1 LINES;
-		LOAD DATA LOCAL INFILE \"$TMPEX/NSRLFile.txt\"
-			REPLACE INTO TABLE NSRLFile
-			COLUMNS TERMINATED BY ','
-			ENCLOSED BY '\"' IGNORE 1 LINES;
-		SET UNIQUE_CHECKS=1;" >>"$TMPSQLSCRIPT"
+	# Insert product data
+	echo "Inserting product codes into database"
+	echo "LOAD DATA LOCAL INFILE \"$TMPEX/NSRLProd.txt\"
+		REPLACE INTO TABLE hashes.NSRLProd
+		COLUMNS TERMINATED BY ','
+		ENCLOSED BY '\"' IGNORE 1 LINES;" | mysql "--user=$DB_USER" "--password=$DB_PWD" -B
 	
-	echo "Inserting hashes into database"
-	#mysql "--user=$DB_USER" "--password=$DB_PWD" -B <"$TMPSQLSCRIPT"
+	#	LOAD DATA LOCAL INFILE \"$TMPEX/NSRLFile.txt\"
+	#		REPLACE INTO TABLE NSRLFile
+	#		COLUMNS TERMINATED BY ','
+	#		ENCLOSED BY '\"' IGNORE 1 LINES;"
+	
+	# Insert hashes
+	total_hashes=`cat "$TMPEX"/NSRLFile.txt | wc -l`
+	curr_hash=-1
+	echo "There are $total_hashes hashes to insert"
+	while read line
+	do
+		# Skip the very first line
+		if [ "$curr_hash" == "-1" ]
+		then
+			curr_hash=0
+			continue
+		fi
+		
+		# Mark what hash we started with
+		start_hash=$curr_hash
+		
+		# Get a bunch of hashes at once
+		echo "INSERT INTO hashes.NSRLFile VALUES ($line);" >"$TMPSQLSCRIPT"
+		for i in `seq 1 $DB_INSERT_INCREMENT_SIZE`
+		do
+			curr_hash=`expr $curr_hash + 1`
+			
+			read line
+			if [ "$line" != "" ]
+			then
+				echo "INSERT INTO hashes.NSRLFile VALUES ($line);" >>"$TMPSQLSCRIPT"
+			else
+				# All done with file, I guess
+				break
+			fi		
+		done
+		
+		echo "Inserting hashes $start_hash-$curr_hash of $total_hashes..."
+		
+		mysql "--user=$DB_USER" "--password=$DB_PWD" -B <"$TMPSQLSCRIPT"
+	done <"$TMPEX/NSRLFile.txt"
 	
 	# Cleanup
 	echo Completed $iso, cleaning up
@@ -216,15 +255,12 @@ do
 done
 
 # Add indexes
-echo "Adding indexes to database, please wait, this will take a while"
-echo "USE hashes;
-	ALTER TABLE NSRLFile
+echo "Adding indexes to database, please wait, this may take 30 minutes or more. Alsa, no progress bar"
+echo "ALTER TABLE hashes.NSRLFile
 		ADD CONSTRAINT UNIQUE INDEX (SHA1),
 		ADD CONSTRAINT UNIQUE INDEX (MD5);
-	ALTER TABLE NSRLProd
-		ADD CONTSRAINT UNIQUE INDEX (ProductCode);" >"$TMPSQLSCRIPT"
-#mysql "--user=$DB_USER" "--password=$DB_PWD" -B <"$TMPSQLSCRIPT"
-rm "$TMPSQLSCRIPT"
+	ALTER TABLE hashes.NSRLProd
+		ADD CONTSRAINT UNIQUE INDEX (ProductCode);" | mysql "--user=$DB_USER" "--password=$DB_PWD" -B
 
 echo "All done!"
 
