@@ -1,6 +1,6 @@
 #!/bin/bash
 DB_USER=root
-DB_PWD=!n1jzw34.
+DB_PWD=test
 DB_DATABASE=hashes
 
 # Listing url must end in slash
@@ -9,15 +9,26 @@ ISO_HASH_FILE="iso_hash.txt"
 
 TMPMNT="nist_iso_mount_point"
 TMPEX="nist_iso_zip_extracted"
-TMPSQLSCRIPT="nist_insert_script.sql"
 
-DB_INSERT_INCREMENT_SIZE=1000
+SQL_CMD="mysql --user=$DB_USER --password=$DB_PWD --database=$DB_DATABASE -B "
 
 # Must be run as root
 if [ "$(whoami)" != "root" ]
 then
 	echo 'This must be run as root'
 	exit 1
+fi
+
+# Test database connection
+echo -n "Testing database connection... "
+output=`$SQL_CMD -e "select 1;" 2>&1`
+if [ "$?" == "0" ]
+then
+	echo "ok"
+else
+	echo "failed"
+	echo $output
+	exit $?
 fi
 
 # Clean up from failed attempt?
@@ -43,20 +54,6 @@ then
 	rm "$TMPEX"/*.txt
 	rmdir "$TMPEX"
 	if [ ! -d "$TMPEX" ]
-	then
-		echo "ok"
-	else
-		echo "failed. Please fix manually"
-		exit
-	fi
-fi
-
-if [ -e "$TMPSQLSCRIPT" ]
-then
-	echo "SQL script $TMPSQLSCRIPT still exists"
-	echo -n "Attempting to clean up... "
-	rm "$TMPSQLSCRIPT"
-	if [ ! -e "$TMPSQLSCRIPT" ]
 	then
 		echo "ok"
 	else
@@ -138,17 +135,16 @@ done
 # Restore the IFS
 IFS=$OLD_IFS
 
-# Create database
+# Create database tables
 echo "Creating database if needed"
-echo "CREATE DATABASE IF NOT EXISTS $DB_DATABASE;
-	USE $DB_DATABASE;
-	CREATE TABLE IF NOT EXISTS NSRLProd (
+echo "CREATE TABLE IF NOT EXISTS NSRLProd (
 		ProductCode int NOT NULL,
 		ProductName varchar(1024),
 		ProductVersion varchar(1024),
 		OpSystemCode varchar(255),
 		MfgCode varchar(100),
-		Language varchar(1024)
+		Language varchar(1024),
+		CONSTRAINT UNIQUE INDEX (ProductCode)
 	) ENGINE=innodb;
 	CREATE TABLE IF NOT EXISTS NSRLFile (
 		SHA1 char(41),
@@ -158,8 +154,10 @@ echo "CREATE DATABASE IF NOT EXISTS $DB_DATABASE;
 		FileSize varchar(1024),
 		ProductCode int,
 		OpSystemCode varchar(255),
-		Specialcode varchar(255)
-	) ENGINE=innodb;" | mysql "--user=$DB_USER" "--password=$DB_PWD" -B
+		Specialcode varchar(255),
+		CONSTRAINT UNIQUE INDEX (SHA1),
+		CONSTRAINT UNIQUE INDEX (MD5)
+	) ENGINE=innodb;" | $SQL_CMD
 		
 for iso in `ls -1 *.iso`
 do
@@ -202,65 +200,44 @@ do
 	# Insert product data
 	echo "Inserting product codes into database"
 	echo "LOAD DATA LOCAL INFILE \"$TMPEX/NSRLProd.txt\"
-		REPLACE INTO TABLE hashes.NSRLProd
+		REPLACE INTO TABLE NSRLProd
 		COLUMNS TERMINATED BY ','
-		ENCLOSED BY '\"' IGNORE 1 LINES;" | mysql "--user=$DB_USER" "--password=$DB_PWD" -B
+		ENCLOSED BY '\"' IGNORE 1 LINES;" | $SQL_CMD &
 	
-	#	LOAD DATA LOCAL INFILE \"$TMPEX/NSRLFile.txt\"
-	#		REPLACE INTO TABLE NSRLFile
-	#		COLUMNS TERMINATED BY ','
-	#		ENCLOSED BY '\"' IGNORE 1 LINES;"
-	
-	# Insert hashes
-	total_hashes=`cat "$TMPEX"/NSRLFile.txt | wc -l`
-	curr_hash=-1
-	echo "There are $total_hashes hashes to insert"
-	while read line
-	do
-		# Skip the very first line
-		if [ "$curr_hash" == "-1" ]
-		then
-			curr_hash=0
-			continue
-		fi
+	function monitor_insert () {
+		total_count=$1
+		insert_count=0
 		
-		# Mark what hash we started with
-		start_hash=$curr_hash
-		
-		# Get a bunch of hashes at once
-		echo "INSERT INTO hashes.NSRLFile VALUES ($line);" >"$TMPSQLSCRIPT"
-		for i in `seq 1 $DB_INSERT_INCREMENT_SIZE`
+		while [ "$insert_count" != "" ]
 		do
-			curr_hash=`expr $curr_hash + 1`
+			echo "Inserted $insert_count / $total_count hashes"
+			sleep 5
 			
-			read line
-			if [ "$line" != "" ]
-			then
-				echo "INSERT INTO hashes.NSRLFile VALUES ($line);" >>"$TMPSQLSCRIPT"
-			else
-				# All done with file, I guess
-				break
-			fi		
+			insert_count=$($SQL_CMD -e "SHOW INNODB STATUS;" |
+				awk '{match($0, /undo log entries [0-9]+/); printf substr($0, RSTART + 17, RLENGTH - 17)}')
 		done
-		
-		echo "Inserting hashes $start_hash-$curr_hash of $total_hashes..."
-		
-		mysql "--user=$DB_USER" "--password=$DB_PWD" -B <"$TMPSQLSCRIPT"
-	done <"$TMPEX/NSRLFile.txt"
+	}
+	monitor_insert `wc -l $TMPEX/NSRLProd.txt`
+	
+	echo "Inserting hashes into database. This will take a long time, be patient"
+	echo "LOAD DATA LOCAL INFILE \"$TMPEX/NSRLFile.txt\"
+			REPLACE INTO TABLE NSRLFile
+			COLUMNS TERMINATED BY ','
+			ENCLOSED BY '\"' IGNORE 1 LINES;" | $SQL_CMD &
+	monitor_insert `wc -l $TMPEX/NSRLFile.txt`
 	
 	# Cleanup
 	echo Completed $iso, cleaning up
 	rm -r "$TMPEX"
-	rm "$TMPSQLSCRIPT"
 done
 
 # Add indexes
-echo "Adding indexes to database, please wait, this may take 30 minutes or more. Alsa, no progress bar"
-echo "ALTER TABLE hashes.NSRLFile
-		ADD CONSTRAINT UNIQUE INDEX (SHA1),
-		ADD CONSTRAINT UNIQUE INDEX (MD5);
-	ALTER TABLE hashes.NSRLProd
-		ADD CONTSRAINT UNIQUE INDEX (ProductCode);" | mysql "--user=$DB_USER" "--password=$DB_PWD" -B
+#echo "Adding indexes to database, please wait, this may take 30 minutes or more. Alsa, no progress bar"
+#echo "ALTER TABLE NSRLFile
+#		ADD CONSTRAINT UNIQUE INDEX (SHA1),
+#		ADD CONSTRAINT UNIQUE INDEX (MD5);
+#	ALTER TABLE NSRLProd
+#		ADD CONTSRAINT UNIQUE INDEX (ProductCode);" | $SQL_CMD
 
 echo "All done!"
 
