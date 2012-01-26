@@ -2,11 +2,26 @@
 # Don't allow the use of uninitialized variables
 set -o nounset
 
+# Settings
+DB_HOST=localhost
+DB_USER=root
+DB_PWD=test
+DB_DATABASE=hashes
+
+# Listing url must end in slash
+NSRL_LISTING_URL="http://www.nsrl.nist.gov/RDS/"
+ISO_HASH_FILE="iso_hash.txt"
+
+TMPMNT="nist_iso_mount_point"
+TMPEX="nist_iso_zip_extracted"
+
+SQL_CMD="mysql --host=$DB_HOST --user=$DB_USER --password=$DB_PWD --database=$DB_DATABASE -B "
+
 # Utility function to clean up the mess we make
 function clean_up_temp () {
 	if [ -e "$TMPMNT" ]
 	then
-		echo -n "Attempting to umount/remove $TMPMNT clean up... "
+		echo -n "Attempting to unmount/remove $TMPMNT clean up... "
 		umount "$TMPMNT"
 		rmdir "$TMPMNT"
 		if [ ! -d "$TMPMNT" ]
@@ -56,19 +71,6 @@ function clean_exit () {
 }
 trap clean_exit int term exit
 
-DB_USER=root
-DB_PWD=test
-DB_DATABASE=hashes
-
-# Listing url must end in slash
-NSRL_LISTING_URL="http://www.nsrl.nist.gov/RDS/"
-ISO_HASH_FILE="iso_hash.txt"
-
-TMPMNT="nist_iso_mount_point"
-TMPEX="nist_iso_zip_extracted"
-
-SQL_CMD="mysql --user=$DB_USER --password=$DB_PWD --database=$DB_DATABASE -B "
-
 # Must be run as root
 if [ "$(whoami)" != "root" ]
 then
@@ -85,7 +87,8 @@ then
 else
 	echo "failed"
 	echo $output
-	exit $?
+	echo "Database settings can be changed by editing variables at the top of this script"
+	exit 123
 fi
 
 # Clean up from failed attempt?
@@ -111,18 +114,32 @@ else
 	newest=`wget -O - -q $NSRL_LISTING_URL | tail -n 1 | awk '{match($0, /rds_[0-9]+\.[0-9]+/); print substr($0, RSTART, RLENGTH);}'`
 	base_url="$NSRL_LISTING_URL$newest"
 
+	# Did we figure it out?
+	if [ "$newest" == "" ]
+	then
+		echo "Unable to determine newest version. Is your network up?"
+		exit 17
+	fi
+
 	echo "Newest version appears to be $newest"
 	echo "Should be at $base_url"
 	
 	# Download hash file
 	echo "Getting hashes for newest ISOs"
 	rm -f "$ISO_HASH_FILE"
-	wget -q "$base_url/$ISO_HASH_FILE" "$ISO_HASH_FILE"
+	wget -q "$base_url/$ISO_HASH_FILE"
+	if [ "$?" != "0" ]
+	then
+		echo "Failed to download iso hash file. Has the location been moved?"
+		echo "You may need to manually download and give the location on the command line"
+		exit 22
+	fi
 	
 	downloaded="true"
 fi
 
 # Get hashes and compare to current files, if they exist
+iso_files=
 OLD_IFS=$IFS
 IFS=`echo -en "\r\n"`
 for iso_hash_line in `grep "SHA1" "$ISO_HASH_FILE"`
@@ -153,6 +170,7 @@ do
 	if [ `sha1sum "$iso_file_name" | awk '{printf $1}'` == "$iso_hash" ]
 	then
 		echo "ok"
+		iso_files="$iso_files $iso_file_name"
 	else
 		echo "hash mismatch"
 		echo "Please remove $iso_file_name. The SHA1 should be $iso_hash"
@@ -167,7 +185,7 @@ IFS=$OLD_IFS
 # Create database tables
 echo "Creating database if needed"
 echo "CREATE TABLE IF NOT EXISTS NSRLProd (
-		ProductCode int NOT NULL,
+		ProductCode int unsigned NOT NULL,
 		ProductName varchar(1024),
 		ProductVersion varchar(1024),
 		OpSystemCode varchar(255),
@@ -181,14 +199,27 @@ echo "CREATE TABLE IF NOT EXISTS NSRLProd (
 		CRC32 char(32),
 		FileName varchar(1024),
 		FileSize varchar(1024),
-		ProductCode int,
+		ProductCode int unsigned,
 		OpSystemCode varchar(255),
 		Specialcode varchar(255),
-		CONSTRAINT UNIQUE INDEX (SHA1),
-		CONSTRAINT UNIQUE INDEX (MD5)
+		INDEX sha_index (SHA1)
+	) ENGINE=innodb;
+	CREATE TABLE IF NOT EXISTS systems (
+		comp_id int unsigned not null,
+		name varchar(100) not null,
+		PRIMARY KEY (comp_id)
+	) ENGINE=innodb;
+	CREATE TABLE IF NOT EXISTS current_files (
+		comp_id int unsigned not null,
+		SHA1 char(41) not null,
+		path varchar(1024) not null,
+		found bit default false,
+		FOREIGN KEY (comp_id) REFERENCES systems (comp_id),
+		INDEX (comp_id, SHA1)
 	) ENGINE=innodb;" | $SQL_CMD
-		
-for iso in `ls -1 *.iso`
+
+# Now work through each ISO!
+for iso in $iso_files
 do
 	# Mount
 	echo "Mounting '$iso'"
@@ -239,29 +270,54 @@ do
 
 		total_count=$1
 		insert_count=0
+		time_left=99999
 		
 		# Get the length of the total count so we know how much to pad our output by
 		len_total=${#total_count}
 		backspace_str=""
-		for i in $(seq 1 `expr $len_total \* 2 + 3`)
+		for i in $(seq 1 `expr $len_total \* 2 + 25`)
 		do
 			backspace_str=$backspace_str"\b"
 		done
 		
-		printf "Inserted " $insert_count $total_count
+		printf "Inserted "
 		while [ "$insert_count" != "" ]
 		do
-			printf "%${len_total}d / %${len_total}d" $insert_count $total_count
+			printf "%${len_total}d / %${len_total}d (%5d min remaining)" $insert_count $total_count $time_left
 			sleep 5
 			
-			insert_count=$($SQL_CMD -e "SHOW INNODB STATUS;" |
-				awk '{match($0, /undo log entries [0-9]+/);
-					  printf substr($0, RSTART + 17, RLENGTH - 17)}')
-					  
-			printf $backspace_str
+			# Get status of load
+			db_status=`$SQL_CMD -e "SHOW INNODB STATUS;"`
+			
+			# How many are done so far?
+			insert_count=$(echo $db_status | awk '{match($0, /undo log entries [0-9]+/);
+												   printf substr($0, RSTART + 17, RLENGTH - 17)}')
+			
+			if [ "$insert_count" != "" ]
+			then
+				# Compute time remaining
+				inserts_per_sec=$(echo $db_status | awk '{match($0, /[0-9]+\.[0-9]+ inserts\/s/);
+														  n=substr($0, RSTART, RLENGTH - 10);
+														  match(n, /[0-9]+\./);
+														  printf substr(n, RSTART, RLENGTH - 1);}')
+			
+				if [ "$inserts_per_sec" != "" -a "$inserts_per_sec" != "0" ]
+				then
+					time_left=`expr \( $total_count - $insert_count \) / $inserts_per_sec / 60`
+				else
+					time_left=0
+				fi
+			else
+				# No more inserts, we must have finished
+				time_left=0
+			fi
+			
+			# Back up display for dynamic output
+			printf "$backspace_str"
+			#printf "\n"
 		done
 		
-		echo "all values                 "
+		echo "all values                           "
 		
 		# Make sure mysql is done
 		wait
@@ -272,14 +328,18 @@ do
 	monitor_insert `wc -l $TMPEX/NSRLProd.txt`
 	
 	echo "Inserting hashes into database. This will take a long time, be patient"
-	echo "LOAD DATA LOCAL INFILE \"$TMPEX/NSRLFile.txt\"
+	echo "ALTER TABLE NSRLFile DROP INDEX sha_index;
+		LOAD DATA LOCAL INFILE \"$TMPEX/NSRLFile.txt\"
 			INTO TABLE NSRLFile
 			COLUMNS TERMINATED BY ','
 			ENCLOSED BY '\"' IGNORE 1 LINES;" | $SQL_CMD &
 	monitor_insert `wc -l $TMPEX/NSRLFile.txt`
 	
+	echo "Indexing hashes"
+	echo "ALTER TABLE NSRLFile ADD INDEX sha_index (SHA1);" | $SQL_CMD
+	
 	# Cleanup
-	echo Completed $iso, cleaning up
+	echo Completed $iso
 	rm -r "$TMPEX"
 done
 
