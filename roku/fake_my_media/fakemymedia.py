@@ -240,7 +240,7 @@ def application(environ, start_response):
 	Run as WSGI application
 	"""
 	cherrypy.config.update(environ['configuration'])
-	cherrypy.tree.mount(FakeMyMedia('/var/samba/media/', '/home/traherom/downloads/',
+	cherrypy.tree.mount(FakeMyMedia('/home/traherom/downloads/converted/', '/home/traherom/downloads/',
 		environ['SERVER_NAME'], environ['SERVER_PORT']),
 		script_name=environ['SCRIPT_NAME'], config=environ['configuration'])
 	return cherrypy.tree(environ, start_response)
