@@ -183,8 +183,11 @@ done
 IFS=$OLD_IFS
 
 # Create database tables
-echo "Creating database if needed"
-echo "CREATE TABLE IF NOT EXISTS NSRLProd (
+# We're really only meant to refresh the hashes, we don't really
+# just add to them, so clean everything out
+echo "Preparing database"
+echo "DROP TABLE IF EXISTS NSRLProd;
+	CREATE TABLE IF NOT EXISTS NSRLProd (
 		ProductCode int unsigned NOT NULL,
 		ProductName varchar(1024),
 		ProductVersion varchar(1024),
@@ -193,6 +196,7 @@ echo "CREATE TABLE IF NOT EXISTS NSRLProd (
 		Language varchar(1024),
 		CONSTRAINT UNIQUE INDEX (ProductCode)
 	) ENGINE=innodb;
+	DROP TABLE IF EXISTS NSRLFile;
 	CREATE TABLE IF NOT EXISTS NSRLFile (
 		SHA1 char(41),
 		MD5 char(32),
@@ -205,18 +209,26 @@ echo "CREATE TABLE IF NOT EXISTS NSRLProd (
 		INDEX sha_index (SHA1)
 	) ENGINE=innodb;
 	CREATE TABLE IF NOT EXISTS systems (
-		comp_id int unsigned not null,
-		name varchar(100) not null,
-		PRIMARY KEY (comp_id)
+		comp_id int unsigned NOT NULL AUTO_INCREMENT,
+		name varchar(100) NOT NULL,
+		PRIMARY KEY (comp_id),
+		UNIQUE INDEX (name)
 	) ENGINE=innodb;
 	CREATE TABLE IF NOT EXISTS current_files (
-		comp_id int unsigned not null,
-		SHA1 char(41) not null,
-		path varchar(1024) not null,
-		found bit default false,
+		comp_id int unsigned NOT NULL,
+		SHA1 char(41) NOT NULL,
+		path varchar(1024) NOT NULL,
+		found bit DEFAULT false,
 		FOREIGN KEY (comp_id) REFERENCES systems (comp_id),
-		INDEX (comp_id, SHA1)
+		INDEX (comp_id, SHA1),
+		UNIQUE INDEX (comp_id, path),
 	) ENGINE=innodb;" | $SQL_CMD
+
+# Having the key in place for the insert will be slow as crap
+if [ "$iso_files" != "" ]
+then
+	echo "ALTER TABLE NSRLFile DROP INDEX sha_index;" | $SQL_CMD
+fi
 
 # Now work through each ISO!
 for iso in $iso_files
@@ -314,10 +326,10 @@ do
 			
 			# Back up display for dynamic output
 			printf "$backspace_str"
-			#printf "\n"
 		done
 		
-		echo "all values                           "
+		# Fully erase the Inserting... line
+		printf "$backspace_str$backspace_str"
 		
 		# Make sure mysql is done
 		wait
@@ -328,18 +340,21 @@ do
 	monitor_insert `wc -l $TMPEX/NSRLProd.txt`
 	
 	echo "Inserting hashes into database. This will take a long time, be patient"
-	echo "ALTER TABLE NSRLFile DROP INDEX sha_index;
-		LOAD DATA LOCAL INFILE \"$TMPEX/NSRLFile.txt\"
+	echo "LOAD DATA LOCAL INFILE \"$TMPEX/NSRLFile.txt\"
 			INTO TABLE NSRLFile
 			COLUMNS TERMINATED BY ','
 			ENCLOSED BY '\"' IGNORE 1 LINES;" | $SQL_CMD &
 	monitor_insert `wc -l $TMPEX/NSRLFile.txt`
 	
-	echo "Indexing hashes"
-	echo "ALTER TABLE NSRLFile ADD INDEX sha_index (SHA1);" | $SQL_CMD
-	
 	# Cleanup
 	echo Completed $iso
 	rm -r "$TMPEX"
 done
+
+# Add index back to table
+if [ "$iso_files" != "" ]
+then
+	echo "Reindexing table. Please wait, this could take a while"
+	echo "ALTER TABLE NSRLFile ADD INDEX sha_index (SHA1);" | $SQL_CMD
+fi
 
