@@ -2,7 +2,7 @@
 NESSUS_FILE="settings.nessus.v1"
 NESSUS_POLICY="Internal Network Scan"
 
-TARGETS="10.1.30.2"
+TARGETS="10.1.30.0/24"
 
 SCANNER_HOST="localhost"
 SCANNER_PORT=1241
