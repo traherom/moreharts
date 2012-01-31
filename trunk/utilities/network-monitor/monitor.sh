@@ -11,7 +11,7 @@ SCANNER_PW="Password!123"
 
 LAST_RESULT_FILE=
 
-WAIT_TIME=5
+WAIT_TIME=3600
 
 # Write out targets to a file for use in call
 TARGET_FILE="targets.txt"
