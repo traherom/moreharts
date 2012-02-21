@@ -202,7 +202,7 @@ echo "Setting database parameters. If this fails, try running as the MySQL root 
 echo "SET GLOBAL innodb_buffer_pool_size = $BUFFER_SIZE;
 	innodb_log_buffer_size
 	innodb_log_file_size
-	" | "$SQL_CMD"
+	" | $SQL_CMD
 
 # Create database tables
 # We're really only meant to refresh the hashes, we don't really
