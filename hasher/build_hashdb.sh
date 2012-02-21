@@ -18,7 +18,7 @@ ISO_HASH_FILE="iso_hash.txt"
 TMPMNT="nist_iso_mount_point"
 TMPEX="nist_iso_zip_extracted"
 
-SQL_CMD="mysql --host=$DB_HOST --user=$DB_USER --password='$DB_PWD' --database=$DB_DATABASE -B "
+SQL_CMD="mysql --host=$DB_HOST --user=$DB_USER --password=$DB_PWD --database=$DB_DATABASE -B "
 
 # Utility function to clean up the mess we make
 function clean_up_temp () {
