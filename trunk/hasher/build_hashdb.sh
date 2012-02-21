@@ -9,7 +9,7 @@ DB_PWD=test
 DB_DATABASE=hashes
 
 # Database tuning
-BUFFER_SIZE=$(expr 512 * 1024 * 1024)
+BUFFER_SIZE=$(expr 512 \* 1024 \* 1024)
 
 # Listing url must end in slash
 NSRL_LISTING_URL="http://www.nsrl.nist.gov/RDS/"
@@ -18,7 +18,7 @@ ISO_HASH_FILE="iso_hash.txt"
 TMPMNT="nist_iso_mount_point"
 TMPEX="nist_iso_zip_extracted"
 
-SQL_CMD="mysql --host=$DB_HOST --user=$DB_USER --password=$DB_PWD --database=$DB_DATABASE -B "
+SQL_CMD="mysql --host='$DB_HOST' --user='$DB_USER' --password='$DB_PWD' --database='$DB_DATABASE' -B "
 
 # Utility function to clean up the mess we make
 function clean_up_temp () {
@@ -79,6 +79,18 @@ if [ "$(whoami)" != "root" ]
 then
 	echo 'This must be run as root'
 	exit 1
+fi
+
+# Check for needed programs
+if [ "$(which mysql)" == "" ]
+then
+	echo 'MySQL client is required for this script'
+	exit 23
+fi
+if [ "$(which unzip)" == "" ]
+then
+	echo '"unzip" is required for this script'
+	exit 23
 fi
 
 # Test database connection
