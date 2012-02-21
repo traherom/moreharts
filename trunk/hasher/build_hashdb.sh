@@ -8,6 +8,9 @@ DB_USER=root
 DB_PWD=test
 DB_DATABASE=hashes
 
+# Database tuning
+BUFFER_SIZE=$(expr 512 * 1024 * 1024)
+
 # Listing url must end in slash
 NSRL_LISTING_URL="http://www.nsrl.nist.gov/RDS/"
 ISO_HASH_FILE="iso_hash.txt"
@@ -111,7 +114,7 @@ then
 else
 	# Determine newest version
 	echo "Checking for the newest version of hash files"
-	newest=`wget -O - -q $NSRL_LISTING_URL | tail -n 1 | awk '{match($0, /rds_[0-9]+\.[0-9]+/); print substr($0, RSTART, RLENGTH);}'`
+	newest=`wget -O - -q "$NSRL_LISTING_URL" | tail -n 1 | awk '{match($0, /rds_[0-9]+\.[0-9]+/); print substr($0, RSTART, RLENGTH);}'`
 	base_url="$NSRL_LISTING_URL$newest"
 
 	# Did we figure it out?
@@ -182,6 +185,13 @@ done
 # Restore the IFS
 IFS=$OLD_IFS
 
+# If allowed, try to set database parameters for good bulk loading performance
+echo "Setting database parameters. If this fails, try running as the MySQL root user"
+echo "SET GLOBAL innodb_buffer_pool_size = $BUFFER_SIZE;
+	innodb_log_buffer_size
+	innodb_log_file_size
+	" | "$SQL_CMD"
+
 # Create database tables
 # We're really only meant to refresh the hashes, we don't really
 # just add to them, so clean everything out
@@ -195,7 +205,7 @@ echo "DROP TABLE IF EXISTS NSRLProd;
 		MfgCode varchar(100),
 		Language varchar(1024),
 		CONSTRAINT UNIQUE INDEX (ProductCode)
-	) ENGINE=innodb;
+	) ENGINE=innodb DEFAULT CHARSET=utf8;
 	DROP TABLE IF EXISTS NSRLFile;
 	CREATE TABLE IF NOT EXISTS NSRLFile (
 		SHA1 char(41),
@@ -207,22 +217,33 @@ echo "DROP TABLE IF EXISTS NSRLProd;
 		OpSystemCode varchar(255),
 		Specialcode varchar(255),
 		INDEX sha_index (SHA1)
-	) ENGINE=innodb;
+	) ENGINE=innodb DEFAULT CHARSET=utf8;
 	CREATE TABLE IF NOT EXISTS systems (
 		comp_id int unsigned NOT NULL AUTO_INCREMENT,
 		name varchar(100) NOT NULL,
 		PRIMARY KEY (comp_id),
 		UNIQUE INDEX (name)
-	) ENGINE=innodb;
+	) ENGINE=innodb DEFAULT CHARSET=utf8;
 	CREATE TABLE IF NOT EXISTS current_files (
 		comp_id int unsigned NOT NULL,
 		SHA1 char(41) NOT NULL,
+		record_date timestamp NOT NULL DEFAULT NOW(),
 		path varchar(1024) NOT NULL,
+		path_hash char(32) NOT NULL,
 		found bit DEFAULT false,
-		FOREIGN KEY (comp_id) REFERENCES systems (comp_id),
+		FOREIGN KEY (comp_id) REFERENCES systems (comp_id) ON DELETE CASCADE,
 		INDEX (comp_id, SHA1),
-		UNIQUE INDEX (comp_id, path),
-	) ENGINE=innodb;" | $SQL_CMD
+		INDEX (comp_id),
+		UNIQUE INDEX (comp_id, path_hash)
+	) ENGINE=innodb DEFAULT CHARSET=utf8;
+	CREATE TABLE IF NOT EXISTS reports (
+		report_id int unsigned NOT NULL AUTO_INCREMENT,
+		comp_id int unsigned NOT NULL,
+		report_date timestamp NOT NULL DEFAULT NOW(),
+		report mediumtext NOT NULL,
+		PRIMARY KEY (report_id),
+		FOREIGN KEY (comp_id) REFERENCES systems (comp_id) ON DELETE CASCADE
+	) ENGINE=innodb DEFAULT CHARSET=utf8;" | $SQL_CMD
 
 # Having the key in place for the insert will be slow as crap
 if [ "$iso_files" != "" ]
@@ -286,16 +307,11 @@ do
 		
 		# Get the length of the total count so we know how much to pad our output by
 		len_total=${#total_count}
-		backspace_str=""
-		for i in $(seq 1 `expr $len_total \* 2 + 25`)
-		do
-			backspace_str=$backspace_str"\b"
-		done
+		erase_str=`python3 -c 'print("\r{}\r".format(" "*80), end="")'`
 		
-		printf "Inserted "
-		while [ "$insert_count" != "" ]
+		while [ "$time_left" != "0" ]
 		do
-			printf "%${len_total}d / %${len_total}d (%5d min remaining)" $insert_count $total_count $time_left
+			printf "Inserted %${len_total}d / %${len_total}d (%5d min remaining)" $insert_count $total_count $time_left
 			sleep 5
 			
 			# Get status of load
@@ -325,11 +341,11 @@ do
 			fi
 			
 			# Back up display for dynamic output
-			printf "$backspace_str"
+			printf "$erase_str"
 		done
 		
 		# Fully erase the Inserting... line
-		printf "$backspace_str$backspace_str"
+		printf "$erase_str"
 		
 		# Make sure mysql is done
 		wait
