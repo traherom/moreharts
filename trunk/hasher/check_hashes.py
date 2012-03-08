@@ -223,9 +223,9 @@ class HashChecker:
 		# Status, if needed
 		if not self.__do_show_hashes:
 			if len(path) < 71:
-				statusLine = '\r{}\rChecking {}'.format(' '*80, path)
+				statusLine = '\r{}\rChecking {}'.format(' '*79, path)
 			else:
-				statusLine = '\r{}\rChecking ...{}'.format(' '*80, path[-68:])
+				statusLine = '\r{}\rChecking ...{}'.format(' '*79, path[-67:])
 			print(statusLine, end='', file=sys.stderr)
 			sys.stdout.flush()
 		
