@@ -172,7 +172,7 @@ do
 		then
 			# No, download
 			echo "Downloading $iso_file_name"
-			wget "$base_url/$iso_file_name" "$iso_file_name"
+			wget "$base_url/$iso_file_name"
 		else
 			# We don't have it, but we also can't download
 			echo "ISO $iso_file_name doesn't exist, but running with specific hash file"
