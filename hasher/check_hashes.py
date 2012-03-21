@@ -450,7 +450,7 @@ class HashChecker:
 				
 				if foundPath == path:
 					# Note that this file wasn't deleted
-					cur.execute('UPDATE current_files SET found=1 WHERE path_hash=MD5(%s) AND comp_id=%s', path, self.__id)
+					cur.execute('UPDATE current_files SET found=1 WHERE path_hash=MD5(%s) AND comp_id=%s', (path, self.__id))
 					
 					if foundHash == hash:
 						# Exact match
