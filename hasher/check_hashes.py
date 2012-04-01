@@ -9,10 +9,16 @@ import random
 class HashChecker:
 	def __init__(self, sys_str_id=None, host='localhost', port=3306, 
 			user='root', password=None, database='hashes'):
+		# Width of terminal - 1
+		self.__max_line_len = 79
+			
 		# Currently we have nothing to check and no results
 		self.__include = []
 		self.__exclude = []
 		self.__results = {}
+
+		self.__state_file_count = 0
+		self.__curr_file_count = 0
 
 		# Save info
 		self.__sys_str_id = sys_str_id
@@ -161,6 +167,13 @@ class HashChecker:
 			cur.execute('UPDATE current_files SET found=0 WHERE comp_id=%s', self.__id)
 			cur.close()
 			
+			# Save the number of files we used to have, lets us show some
+			# progress
+			cur = self.__conn.cursor()
+			cur.execute('SELECT count(*) FROM current_files WHERE comp_id=%s', self.__id)
+			self.__state_file_count = cur.fetchone()[0]
+			cur.close()
+			
 			# And actually turn on
 			self.__do_audit_state = enable
 			
@@ -222,10 +235,24 @@ class HashChecker:
 		"""
 		# Status, if needed
 		if not self.__do_show_hashes:
-			if len(path) < 71:
-				statusLine = '\r{}\rChecking {}'.format(' '*79, path)
+			# For an audit we know roughly the number of file we expect to
+			# find. Use that info to give a better status
+			if self.__do_audit_state:
+				count_str =  ' ({}/{})'.format(
+					self.__curr_file_count, self.__state_file_count)
 			else:
-				statusLine = '\r{}\rChecking ...{}'.format(' '*79, path[-67:])
+				count_str = ''
+			
+			# Show the current folder we're in, plus the count if we have one
+			if len(path) < self.__max_line_len - 8 - len(count_str):
+				statusLine = '\r{}\rChecking {}{}'.format(
+					' '*self.__max_line_len, path, count_str)
+			else:
+				statusLine = '\r{}\rChecking ...{}{}'.format(
+					' '*self.__max_line_len,
+					path[-(self.__max_line_len - 12 - len(count_str)):],
+					count_str)
+			
 			print(statusLine, end='', file=sys.stderr)
 			sys.stdout.flush()
 		
@@ -238,7 +265,7 @@ class HashChecker:
 		# they are not excluded, we have access, and they
 		# are not a link (to avoid circular directories)
 		has_report = False
-		for child in os.listdir(path):
+		for child in sorted(os.listdir(path)):
 			full = os.path.join(path, child)
 			
 			# Only work with dirs here
@@ -267,6 +294,7 @@ class HashChecker:
 				continue
 			
 			# And check
+			self.__curr_file_count += 1
 			if self.__check_file(full):
 				has_report = True
 		
@@ -284,7 +312,7 @@ class HashChecker:
 		"""
 		# Nothing to report by default
 		report = ''
-		
+
 		try:
 			# Hash it
 			hash = self.__hash_file(full)
@@ -431,8 +459,8 @@ class HashChecker:
 		"""
 		cur = self.__conn.cursor()
 		cur.execute('''SELECT SHA1, path FROM current_files
-										 WHERE comp_id=%s AND (SHA1=%s OR path_hash=MD5(%s))''',
-										 (self.__id, hash, path))
+										 WHERE (comp_id=%s AND SHA1=%s) OR (comp_id=%s AND path_hash=MD5(%s))''',
+										 (self.__id, hash, self.__id, path))
 		
 		# How'd it match up?
 		if cur.rowcount == 0:
