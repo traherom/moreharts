@@ -3,7 +3,40 @@ import os
 import argparse
 import hashlib
 import sys
+import shutil
 
+def prompt_for_action(left_path, right_path, default='i'):
+	promptStr = "Action? "
+	if default == 'i':
+		promptStr += '[c/d/I] '
+	elif default == 'd':
+		promptStr += '[c/D/i] '
+	elif default == 'c':
+		promptStr += '[C/d/i] '
+	
+	choice = input(promptStr)
+	if not choice:
+		choice = default
+
+	left_full = left_path		
+	right_full = right_path
+	
+	if choice == 'd':
+		# Delete
+		print(left_full, right_full)
+		
+		if os.path.isdir(right_full):
+			shutil.rmtree(right_full)
+		else:
+			os.unlink(right_full)
+		
+	elif choice == 'c':
+		# Copy from left to right
+		if os.path.isdir(right_full):
+			shutil.copytree(left_full, right_full)
+		else:
+			shutil.copy2(left_full, right_full)
+		
 def hash_file(path):
 	"""
 	Computes the SHA1 hash the given file
@@ -60,6 +93,7 @@ def walk(left_base, right_base, relative_path):
 	
 	if left_type != right_type:
 		print_diff(relative_path, 'Left is {}, right is {}'.format(left_type, right_type))
+		prompt_for_action(left_path, right_path, relative_path, 'd')
 		return False
 	
 	if os.path.isfile(left_path):
@@ -69,7 +103,8 @@ def walk(left_base, right_base, relative_path):
 		
 		if lhash != rhash:
 			print_diff(relative_path, 'Hash does not match')
-			return False	
+			prompt_for_action(left_path, right_path, 'c')
+			return False
 	elif os.path.isdir(left_path):
 		# Oh, we're a directory. Compare all our children
 		# Walk through left side and compare against same path in right side
@@ -88,6 +123,9 @@ def walk(left_base, right_base, relative_path):
 			matches = False
 			for extra in sorted(extra_right):
 				print_diff(os.path.join(relative_path, extra), 'New on right')
+				
+				# Delete new file?
+				prompt_for_action(os.path.join(left_path, extra), os.path.join(right_path, extra), 'd')
 				
 		return matches
 			
