@@ -98,6 +98,16 @@ def path_type(path):
 def walk(settings, left_base, right_base, relative_path):
 	print('Working on {}'.format(relative_path), file=sys.stderr)
 
+	# If we're supposed to always ignore this path, just stop processing now
+	try:
+		choice = settings[relative_path]
+		if choice.lower() == 'i':
+			print('Ignoring', relative_path)
+			return True
+	except KeyError:
+		# No settings for this path, keep going
+		pass
+
 	# Construct paths we're actually comparing
 	left_path = os.path.join(left_base, relative_path)
 	right_path = os.path.join(right_base, relative_path)
